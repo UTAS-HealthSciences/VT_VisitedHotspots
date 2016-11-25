@@ -1,0 +1,413 @@
+/**
+* Name: Visited Hotspot Tracker
+* Author: Connor Deckers (cdeckers)
+* Date: 24 November 2016
+*/
+
+/* Plugin-wide Object Manager */
+
+    //Initiates a container
+    var UTASPlugin = UTASPlugin || {};
+
+    //plugin-specific global-access plugin ID
+    UTASPlugin.ID = UTASPlugin.ID || '';
+
+    UTASPlugin.SceneID = UTASPlugin.SceneID || '';
+
+    //plugin-specific global-access to onscreen container
+    UTASPlugin.InfoBox = UTASPlugin.InfoBox || null;
+
+    //Container for infospots
+    UTASPlugin.Spots = UTASPlugin.Spots || {};
+
+    //List of seen hotspots for this pano
+    UTASPlugin.Spots.History = UTASPlugin.Spots.History || {};
+
+    //Add CSS Styles
+    UTASPlugin.CSS = UTASPlugin.CSS || {};
+
+    //Global non-specific settings
+    UTASPlugin.Settings = UTASPlugin.Settings || {};
+
+    //Global spotindex array
+    UTASPlugin.SpotIndex = UTASPlugin.SpotIndex || {};
+
+/* Properties Getter */
+    //Helper function to get properties
+    function getProp(property, type, pluginID)
+    {
+      if(typeof pluginID !== "string") { pluginID = UTASPlugin.ID; }
+      if(typeof property !== "string") { console.error("Error in getProp: property should be of type string. Type is " + typeof property); }
+      if(typeof type !== "string") { console.error("Error in getProp: type should be of type string. Type is " + typeof type); }
+
+      var preStr = "ptplugin["+pluginID+"].settings[0].option[";  /* Concat with necessary var */  var endStr = '].value';
+      var val = getKrValue(preStr+property+endStr, type);
+      return val;
+    }
+
+
+/* Hotspot Manager */
+
+    //Function called from visHS_BootstrapLoadedevent.js
+    function listHotspots(pID)
+    {
+      //Find KRPano object in DOM
+      var krpano = document.getElementById("krpanoSWFObject");
+
+      //Hook custom event into the "On New Pano" event of KRPano DOM object
+      krpano.set("events.onnewpano", function() { $(document).trigger("pano_changed"); });
+
+      //Set our global plugin ID
+      UTASPlugin.ID = pID;
+
+      //Is our display going to be compact or verbose?
+      UTASPlugin.Settings.Compact = getProp("compactView", "bool");
+
+    }
+
+    //Triggers every time the panorama is changed.
+    $(document).on('pano_changed', function() {
+      //When our panorama is changed, run the managing function
+
+      var krpano = document.getElementById("krpanoSWFObject");
+      UTASPlugin.SceneID = krpano.get('xml.scene');
+      UTASPlugin.Spots[UTASPlugin.SceneID] = UTASPlugin.Spots[UTASPlugin.SceneID] || [];
+      UTASPlugin.Spots.History[UTASPlugin.SceneID] = UTASPlugin.Spots.History[UTASPlugin.SceneID] || [];
+
+      //Sets the current index of the spots array for cycling through in click
+      UTASPlugin.SpotIndex[UTASPlugin.SceneID] = UTASPlugin.SpotIndex[UTASPlugin.SceneID] || {};
+
+      UpdateHotspots();
+    });
+
+    //Managing function
+    function UpdateHotspots()
+    {
+        //Gather all of the hotspots into a list.
+        logMsg("Listing hotspots.");
+        UTASPlugin.Spots[UTASPlugin.SceneID] = listHotspot();
+
+        //Sort hotspots into categories
+        logMsg("Sorting hotspots into categories");
+        UTASPlugin.Spots[UTASPlugin.SceneID] = sortSpots(UTASPlugin.Spots[UTASPlugin.SceneID]);
+
+        //Draw the container on screen for the information to exist inside of.
+        logMsg("Running the container draw function.");
+        UTASPlugin.Container = drawContainer();
+
+        //Format the text
+        logMsg("Formatting text");
+        var info = formatInformation(UTASPlugin.Spots[UTASPlugin.SceneID]);
+
+        //Insert into container and serve
+        logMsg("Pushing text to container");
+        insertContent(info);
+    }
+
+    //Refreshes the information panel
+    function refreshView()
+    {
+      //Format the text
+      logMsg("Formatting text");
+      var info = formatInformation(UTASPlugin.Spots[UTASPlugin.SceneID]);
+
+      //Insert into container and serve
+      logMsg("Pushing text to container");
+      insertContent(info);
+    }
+
+    //Gathers hotspots from xml.content and scrapes out our panopointspots.
+    //TODO: Document and tidy this function
+    function listHotspot()
+    {
+      var hotspots = [];
+      var krpano = document.getElementById("krpanoSWFObject");
+      $content = krpano.get('xml.content');
+      $.each($($content).find("action[name='hidepanopointspots']").html().split(';'), function(key, item) {
+        var spotID = item.trim().match(/[^\[]+\[([^\]]+)[.]*/i);
+        if(spotID)
+        {
+          hotspots.push(spotID[1]);
+        }
+      });
+      logMsg("Available hotspot ID's: " + hotspots);
+      return hotspots;
+    };
+
+    //Sorts out spots and categorizes them
+    function sortSpots(hotspots)
+    {
+      //Gets KRPano object from DOM
+      var krpano = document.getElementById("krpanoSWFObject");
+
+      //Creates an empty object ready for sorting
+      var sorted = {};
+
+      //Go through each hotspot that was found
+      $.each(hotspots, function(k, elem) {
+
+        //Get the style name for the hotspot
+        var style = krpano.get('hotspot['+elem+'].style');
+
+        //Make sure that there is a style attached, and that it's not null
+        //Javascript recognises null as a false in if statements
+        if(style)
+        {
+          //Go through our styles list, and find where our hotspot should be
+          $.each(UTASPlugin.Styles, function (name, styles)
+          {
+            //Test if the hotspot is in the array.
+            //indexOf returns -1 if not in the array, and the first entry of the array is index 0, etc..
+            if(styles.indexOf(style) > -1)
+            {
+              //If the name of this category doesn't exist yet, we'll add it as an empty array.
+              if(sorted[name] == null) { sorted[name] = []; }
+
+              //If the name doesn't exist in our spot index object yet, we'll add it and set to 0.
+              UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] = UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] || 0;
+
+              //Push the name of the hotspot to the array for our styles clean name.
+              sorted[name].push(elem);
+
+              var orig = krpano.get('hotspot['+elem+'].onclick');
+              var obj = {
+                'orig': orig,
+                'name': elem,
+                'style': style,
+                'category': name
+              };
+              krpano.set('hotspot['+elem+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
+
+            } //end if<IndexOf>
+          }); //end .each<UTASPlugin.Styles>
+        } //end if<style !null>
+      }); //end .each<hotspots>
+
+      //Return our sorted object for the parent function to handle.
+      return sorted;
+    }
+
+    //Fires when a registered hotspot is clicked
+    //Hotspots registered when being sorted.
+    function hotspotClick(obj)
+    {
+      obj = JSON.parse(obj);
+      var krpano = document.getElementById("krpanoSWFObject");
+      krpano.call(obj.orig);
+      addToHistory(obj);
+      refreshView();
+    }
+
+    //Helper function to add entries to history stack
+    function addToHistory(obj)
+    {
+      if(obj)
+      {
+        if(UTASPlugin.Spots.History[UTASPlugin.SceneID].indexOf(obj.name) == -1)
+        {
+          UTASPlugin.Spots.History[UTASPlugin.SceneID].push(obj.name);
+        }
+      }
+    }
+
+    //Helper function to check if entry in history stack
+    function inHistory(obj)
+    {
+      if(obj)
+      {
+        return UTASPlugin.Spots.History[UTASPlugin.SceneID].indexOf(obj.name) > -1;
+      }
+    }
+
+    //Allows user to toggle console messages from interface
+    function logMsg(obj)
+    {
+      //If the user has ticked "Log to console" in Style tab
+      if(getKrValue("ptplugin["+UTASPlugin.ID+"].settings[0].option[consoleLog].value", "bool"))
+      {
+        //Log our message to the console.
+        console.log(obj);
+      }
+    }
+
+    //Draws container onto the screen, ready for content to be added
+    function drawContainer()
+    {
+      if(!$('#'+UTASPlugin.ID).length)
+      {
+        //Get the container draw settings.
+        var preStr = "ptplugin["+UTASPlugin.ID+"].settings[0].option[";  /* Concat with necessary var */  var endStr = '].value';
+
+        var position = getProp('position', "string");
+        var margin_x = getProp('margin_x', "int");
+        var margin_y = getProp('margin_y', "int");
+
+        // var position = getKrValue(preStr+'position'+endStr, "string");
+        // var margin_x = getKrValue(preStr+'margin_x'+endStr, "int");
+        // var margin_y = getKrValue(preStr+'margin_y'+endStr, "int");
+
+        //Create the square
+        var square = document.createElement('div');
+        square.id = UTASPlugin.ID;
+
+        //Add the container of the square to the container of the tour
+        jQuery("#panoDIV").prepend(square);
+
+        var size = getProp("containerWidth", "int");
+        jQuery(square).css({
+            'z-index': 1,
+            'position': 'absolute',
+            'width': size+'px',
+          });
+
+        var cssPosition = {};
+
+        //Calculate the position
+        switch (position) {
+          case 'topleft':
+            cssPosition = { 'top': 0, 'left':0, 'margin-left': margin_x, 'margin-top': margin_y};
+            break;
+
+          case 'top':
+            cssPosition = { 'top': 0, 'left': '50%', 'margin-left': '-'+(size/2)+'px', 'margin-top': margin_y };
+            break;
+
+          case 'topright':
+            cssPosition = { 'top': 0, 'right': 0, 'margin-top': margin_y, 'margin-right': margin_x };
+            break;
+
+          case 'right':
+            cssPosition = { 'top': '50%', 'margin-top':'-'+(size/2)+'px', 'right':0, 'margin-right': margin_x };
+            break;
+
+          case 'bottomright':
+            cssPosition = { 'bottom': 0, 'right': 0, 'margin-right': margin_x, 'margin-bottom': margin_y };
+            break;
+
+          case 'bottom':
+            cssPosition = { 'bottom': 0, 'left': '50%', 'margin-left': '-'+(size/2)+'px', 'margin-bottom': margin_y }
+            break;
+
+          case 'bottomleft':
+            cssPosition = { 'bottom' : 0, 'left' : 0,  'margin-bottom': margin_y, 'margin-left': margin_x };
+            break;
+
+          case 'left':
+            cssPosition = {'left': 0, 'top': '50%', 'margin-top':'-'+(size/2)+'px', 'margin-left': margin_x }
+            break;
+
+          case 'center':
+            cssPosition = {'top': '50%', 'margin-top':'-'+(size/2)+'px', 'left': '50%', 'margin-left': '-'+(size/2)+'px'}
+            break;
+        }
+
+        //Apply the position
+        jQuery(square).css(cssPosition);
+
+        return square;
+      }
+      return $('#'+UTASPlugin.ID);
+    };
+
+    //Formats our text from the Spots data and returns it tidied for the container
+    function formatInformation(spots)
+    {
+      var string = '<div style="position:absolute; bottom:0;">';
+      if(spots != null)
+      {
+        $.each(spots, function(name,spot) {
+          var seen = 0;
+          var unseen = 0;
+          $.each(spot, function (k, name) {
+            if(inHistory({'name': name})) { seen++; } else { unseen++; }
+          });
+          if(UTASPlugin.Settings.Compact)
+          {
+            string += '<p class="spot-result" data-name="'+name+'">'+name+'<br>Viewed '+seen+' / ' + (unseen+seen) + '</p>';
+          }
+          else
+          {
+            string += '<p class="spot-result" data-name="'+name+'">'+name+': '+seen+' spots seen, '+unseen+' spots unseen.</p>';
+          }
+        });
+      }
+      else
+      {
+        string += "<p>No hotspots available.</p>";
+      }
+      string += "</div>";
+      return string;
+    }
+
+    //Inserts the content into the onscreen box for the end-user to see
+    function insertContent(info)
+    {
+      $(UTASPlugin.Container).html(info);
+    }
+
+/* Manage cycling through hotspots */
+
+    $(document).on("click", ".spot-result", function() {
+
+      var hotspotName = (UTASPlugin.Spots[UTASPlugin.SceneID][$(this).data("name")][UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]]);
+      UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]++;
+
+      var krpano = document.getElementById("krpanoSWFObject");
+      krpano.call('looktohotspot('+hotspotName+')');
+
+      if(UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] >= UTASPlugin.Spots[UTASPlugin.SceneID][$(this).data("name")].length)
+      {
+        UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] = 0;
+      }
+    });
+
+/* Style tag generator */
+
+    function createStylesheet()
+    {
+      var fColour = ktools.Color.hex2rgb(getProp("font_colour", "string"));
+      var fDecorate = (getProp("font_underline", "bool") ? "underline " : "") + (getProp("font_strikethrough", "bool") ? "strikethrough" : "");
+      var font = {
+        "font-family": getProp("font_family", "string"),
+        "font-weight": getProp("font_bold", "bool") ? "bold" : "normal",
+        "font-style": getProp("font_italics", "bool") ? "italic" : "normal",
+        "text-decoration":  fDecorate == "" ? "normal" : fDecorate.trim(),
+        "font-size": getProp("font_size", "int")+"px",
+        "color": "rgba("+fColour[0]+","+fColour[1]+","+fColour[2]+","+getProp("font_alpha", "float")+")",
+        "line-height": getProp("lineheight", "int")+"px",
+        "text-shadow": "rgb(0, 0, 0) 1px 1px 3.2px",
+      };
+      if(UTASPlugin.Settings.Compact)
+      {
+        font["padding-bottom"] = getProp("itemSpacing", "int")+"px";
+        addStyle(".spot-result:last-child", {"padding-bottom":"0"});
+      }
+      addStyle(".spot-result", font);
+
+      //Add in more style information here as needed.
+
+      generateCSS();
+
+    }
+
+    function addStyle(identifier, rule)
+    {
+      if(UTASPlugin.CSS[identifier] == null) { UTASPlugin.CSS[identifier] = {}; }
+      $.extend(UTASPlugin.CSS[identifier], rule);
+    }
+
+    function generateCSS()
+    {
+      var rules = "";
+      $.each(UTASPlugin.CSS, function(id, props)
+      {
+        rules += id + " {\n";
+        $.each(props, function(property, rule) {
+          rules += "\t"+property+":"+rule+";\n";
+        });
+        rules += "}\n\n";
+      });
+
+      $("head").append("<style>"+rules+"</style>");
+
+    }

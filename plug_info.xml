@@ -1,0 +1,52 @@
+<plugin id="UTAS_PTPPlugin_VisibleHotspots"
+        category="tr:Advanced"
+        name="tr:Available Hotspots"
+        version="1.0"
+        isGraphical="true"
+        multipleInstance="true"
+        description="tr:Shows seen and unseen hotspots on screen."
+        author="Connor Deckers (cdeckers) 2016">
+
+        <parameters>
+          <group id="display" name="tr: Display">
+            <row id="position">
+              <position id="myPosition" name="Position" default="topleft" availableValues="topleft,topright,bottomleft,bottomright,bottom,top,left,right,center"/>
+            </row>
+            <row id="size">
+              <number id="containerWidth" name="tr: Container Width" default="350" minimum="0" maximum="800" suffix="px" />
+            </row>
+            <row id="compactMode">
+              <bool id="compactView" name="tr: Compact View" default="true" />
+            </row>
+            <row id="spacing" conditionalParam="compactView" conditionalValues="true">
+              <number id="itemSpacing" name="tr: Entry Spacing" default="20" minimum="0" maximum="100" suffix="px" />
+            </row>
+          </group>
+          <group name="tr: Font Style">
+            <row id="font">
+              <font id="font" name="tr:Font family" details="tr: Choose font family" default="Calibri" size="20" style="normal" />
+            </row>
+            <row id="fontcolour">
+              <color id="fontcolor" name="tr: Font color" default="#ffffff" needalpha="false" defaultalpha="1.0" />
+            </row>
+            <row id="lineheight">
+              <number id="lineheight" name="tr: Line Height" default="20" minimum="0" maximum="1000" suffix="px" />
+            </row>
+            <row id="fontshadow">
+              <bool id="fontshadow" name="tr: Display a shadow behind the text" default="true" />
+            </row>
+          </group>
+
+            <advanced id="advancedParams">
+              <bool id="consoleLog" name="tr: Log to console" details="tr: Log information to console during use." default="true" />
+            </advanced>
+
+        </parameters>
+
+        <templates>
+            <template url="visHS.tmpl" />
+            <template url="visHS_Bootstrap.tmpl"  type="jsbootstrap" />
+            <template url="styles.tmpl" type="html" />
+            <template url="visHS_BootstrapLoadEvent.tmpl" type="jsbootstraploaded" />
+        </templates>
+</plugin>
