@@ -49,4 +49,9 @@
             <template url="styles.tmpl" type="html" />
             <template url="visHS_BootstrapLoadEvent.tmpl" type="jsbootstraploaded" />
         </templates>
+
+        <resources>
+          <file url="Checkbox.png" />
+        </resources>
+
 </plugin>
