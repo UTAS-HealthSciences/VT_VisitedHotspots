@@ -94,6 +94,7 @@
       //Sets the current index of the spots array for cycling through in click
       UTASPlugin.SpotIndex[UTASPlugin.SceneID] = UTASPlugin.SpotIndex[UTASPlugin.SceneID] || {};
       UpdateHotspots();
+      reviveHistory(UTASPlugin.SceneID);
     });
 
     /**
@@ -259,6 +260,14 @@
       }
     }
 
+    function reviveHistory(scene)
+    {
+      $.each(UTASPlugin.Spots.History[scene], function(k,v) {
+        var pos = getHotspotPosition(v);
+        createSeenSpot(v, pos.ath, pos.atv, 0, 0);
+      });
+    }
+
     //Helper function to check if entry in history stack
     function inHistory(obj)
     {
@@ -409,7 +418,7 @@
       krpano.set('hotspot['+name+'].url', UTASPlugin.Resources+'checkbox.png');
       krpano.set('hotspot['+name+'].edge', 'leftbottom');
       krpano.set('hotspot['+name+'].zorder', 100);
-      krpano.set('hotspot['+name+'].keep', true);
+      //krpano.set('hotspot['+name+'].keep', true);
       krpano.set('hotspot['+name+'].ath', parseFloat(ath)+parseFloat(xoffset));
       krpano.set('hotspot['+name+'].atv', parseFloat(atv)+parseFloat(yoffset));
     }
