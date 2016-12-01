@@ -203,32 +203,37 @@
         {
           //Go through our styles list, and find where our hotspot should be
           $.each(UTASPlugin.Styles, function (name, styles) {
-            //Test if the hotspot is in the array.
-            //indexOf returns -1 if not in the array, and the first entry of the array is index 0, etc..
-            if(styles.indexOf(style) > -1)
+            //Check to make sure the style is to be shown onscreen
+            //set in `styles.tmpl`
+            if(styles.display)
             {
-              //If the name of this category doesn't exist yet, we'll add it as an empty array.
-              if(sorted[name] == null) { sorted[name] = []; }
+              //Test if the hotspot is in the array.
+              //indexOf returns -1 if not in the array, and the first entry of the array is index 0, etc..
+              if(styles.styles.indexOf(style) > -1)
+              {
+                //If the name of this category doesn't exist yet, we'll add it as an empty array.
+                if(sorted[name] == null) { sorted[name] = []; }
 
-              //If the name doesn't exist in our spot index object yet, we'll add it and set to 0.
-              UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] = UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] || 0;
+                //If the name doesn't exist in our spot index object yet, we'll add it and set to 0.
+                UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] = UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] || 0;
 
-              //Push the name of the hotspot to the array for our styles clean name.
-              sorted[name].push(v);
+                //Push the name of the hotspot to the array for our styles clean name.
+                sorted[name].push({'name': v, 'tooltip': ktools.I18N.getInstance().getMessage(krpano.get('hotspot['+v+'].tooltip'))});
 
-              var orig = krpano.get('hotspot['+v+'].onclick');
-              var obj = {
-                'orig': orig,
-                'name': v,
-                'style': style,
-                'category': name
-              };
-              krpano.set('hotspot['+v+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
+                var orig = krpano.get('hotspot['+v+'].onclick');
+                var obj = {
+                  'orig': orig,
+                  'name': v,
+                  'style': style,
+                  'category': name
+                };
+                krpano.set('hotspot['+v+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
 
-            } //end if<IndexOf>
-          }); //end .each<UTASPlugin.Styles>
-        } //end if<style !null>
-      }); //end .each<hotspots>
+              } //end if<IndexOf>
+            }   //end if<styles.display>
+          });   //end .each<UTASPlugin.Styles>
+        }       //end if<style !null>
+      });       //end .each<hotspots>
 
       //Return our sorted object for the parent function to handle.
       return sorted;
@@ -376,7 +381,7 @@
           var seen = 0;
           var unseen = 0;
           $.each(spot, function (k, name) {
-            if(inHistory({'name': name})) { seen++; } else { unseen++; }
+            if(inHistory({'name': name.name})) { seen++; } else { unseen++; }
           });
           if(UTASPlugin.Settings.Compact)
           {
@@ -426,7 +431,9 @@
 
     $(document).on("click", ".spot-result", function() {
 
-      var hotspotName = (UTASPlugin.Spots[UTASPlugin.SceneID][$(this).data("name")][UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]]);
+      //This stupidly long and convoluted string tries to find the name of the hotspot at the currently stored index.
+      //If you can think of a better way, refactor it!
+      var hotspotName = (UTASPlugin.Spots[UTASPlugin.SceneID][$(this).data("name")][UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]]).name;
       UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]++;
 
       var krpano = document.getElementById("krpanoSWFObject");

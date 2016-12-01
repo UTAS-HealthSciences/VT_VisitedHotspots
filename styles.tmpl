@@ -2,13 +2,16 @@
 //Initiates a container
 var UTASPlugin = UTASPlugin || {};
 UTASPlugin.Styles = {
-  // 'Panoramas': [
-  //     'IconPanoSpot-Downward',
-  //     'IconPanoSpot-Forward',
-  //     'IconPanoSpot-Left',
-  //     'IconPanoSpot-Right',
-  //   ],
-  //
+  'Panoramas': {
+    'styles': [
+        'IconPanoSpot-Downward',
+        'IconPanoSpot-Forward',
+        'IconPanoSpot-Left',
+        'IconPanoSpot-Right',
+      ],
+      'display': false,
+  },
+
   // 'Documents': [
   //   'IconPDFInfoSpot',
   // ],
@@ -30,14 +33,17 @@ UTASPlugin.Styles = {
   //   'IconPicturespot'
   // ],
 
-  'Info Spots': [
-    'IconResourcesspot-_weblink_',
-    'IconInformationSpot-Web',
-    'IconPDFInfoSpot',
-    'IconOpentheGallery',
-    'IconWebvideospot',
-    'IconPicturespot'
-  ],
+  'Info Spots': {
+    'styles': [
+      'IconResourcesspot-_weblink_',
+      'IconInformationSpot-Web',
+      'IconPDFInfoSpot',
+      'IconOpentheGallery',
+      'IconWebvideospot',
+      'IconPicturespot'
+    ],
+    'display': true,
+  }
 };
 
 </script>
