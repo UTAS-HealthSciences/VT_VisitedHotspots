@@ -1,0 +1,1 @@
+# Visited Hotspots Panotour Plugin

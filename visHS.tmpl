@@ -23,6 +23,14 @@
 
 		<option name="lineheight" value="{{ p.lineheight.value }}" type="int" />
 
+		<option name="data_dir" value="{{dataDirectory}}" type="string" />
+		<option name="plugin_dir" value="{{pluginDirectory}}" type="string" />
+	{% if p.visitedImage.value %}
+		<option name="imageSrc" value="{{p.visitedImage.fileName}}" type="string" />
+	{% else %}
+		<option name="imageSrc" value="checkbox.png" type="string" />
+	{% endif %}
+
 		// <option name="size" value="{{ p.mySize.value }}" type="int" />
 		// <option name="color" value="{{ p.myColor.colorRRGGBB }}" type="string" />
 		// <option name="alpha" value="{{ p.myColor.alpha }}" type="float" />

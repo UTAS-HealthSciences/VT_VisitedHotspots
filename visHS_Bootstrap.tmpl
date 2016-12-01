@@ -32,9 +32,9 @@
     //Global spotindex array
     UTASPlugin.SpotIndex = UTASPlugin.SpotIndex || {};
 
-    //Default resource string
-    //Probably a better way to find this, instead of hardcoding it.
-    UTASPlugin.Resources = "indexdata/graphics/visitedhotspots/";
+    //Resource location
+    UTASPlugin.Resources = UTASPlugin.Resources || "";
+    UTASPlugin.HotspotImage = UTASPlugin.HotspotImage || "";
 
 /* Properties Getter */
     //Helper function to get properties
@@ -79,6 +79,8 @@
       //Is our display going to be compact or verbose?
       UTASPlugin.Settings.Compact = getProp("compactView", "bool");
 
+      UTASPlugin.Resources = getProp("data_dir", "string") + '/' + getProp("plugin_dir", "string") + "/";
+      UTASPlugin.HotspotImage = getProp("imageSrc", "string");
     }
 
     /**
@@ -183,7 +185,7 @@
     };
 
     //Sorts out spots and categorizes them
-    function sortSpots(hotspots)
+    function sortSpots(hs)
     {
       //Gets KRPano object from DOM
       var krpano = document.getElementById("krpanoSWFObject");
@@ -192,18 +194,15 @@
       var sorted = {};
 
       //Go through each hotspot that was found
-      $.each(hotspots, function(k, elem) {
-
+      $.each(hs, function(e,v) {
         //Get the style name for the hotspot
-        var style = krpano.get('hotspot['+elem+'].style');
-
+        var style = krpano.get('hotspot['+v+'].style');
         //Make sure that there is a style attached, and that it's not null
         //Javascript recognises null as a false in if statements
-        if(style)
+        if(typeof style === "string")
         {
           //Go through our styles list, and find where our hotspot should be
-          $.each(UTASPlugin.Styles, function (name, styles)
-          {
+          $.each(UTASPlugin.Styles, function (name, styles) {
             //Test if the hotspot is in the array.
             //indexOf returns -1 if not in the array, and the first entry of the array is index 0, etc..
             if(styles.indexOf(style) > -1)
@@ -215,16 +214,16 @@
               UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] = UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] || 0;
 
               //Push the name of the hotspot to the array for our styles clean name.
-              sorted[name].push(elem);
+              sorted[name].push(v);
 
-              var orig = krpano.get('hotspot['+elem+'].onclick');
+              var orig = krpano.get('hotspot['+v+'].onclick');
               var obj = {
                 'orig': orig,
-                'name': elem,
+                'name': v,
                 'style': style,
                 'category': name
               };
-              krpano.set('hotspot['+elem+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
+              krpano.set('hotspot['+v+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
 
             } //end if<IndexOf>
           }); //end .each<UTASPlugin.Styles>
@@ -415,7 +414,7 @@
       logMsg("Seen spot name: " + name);
       var krpano = pano();
       krpano.call('addhotspot('+name+')');
-      krpano.set('hotspot['+name+'].url', UTASPlugin.Resources+'checkbox.png');
+      krpano.set('hotspot['+name+'].url', UTASPlugin.Resources+UTASPlugin.HotspotImage);
       krpano.set('hotspot['+name+'].edge', 'leftbottom');
       krpano.set('hotspot['+name+'].zorder', 100);
       //krpano.set('hotspot['+name+'].keep', true);
