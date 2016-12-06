@@ -23,6 +23,8 @@
     //List of seen hotspots for this pano
     UTASPlugin.Spots.History = UTASPlugin.Spots.History || {};
 
+    UTASPlugin.VisitedPanoramas = UTASPlugin.VisitedPanoramas || [];
+
     //Add CSS Styles
     UTASPlugin.CSS = UTASPlugin.CSS || {};
 
@@ -35,6 +37,10 @@
     //Resource location
     UTASPlugin.Resources = UTASPlugin.Resources || "";
     UTASPlugin.HotspotImage = UTASPlugin.HotspotImage || "";
+
+    //XML Source
+    UTASPlugin.XML = UTASPlugin.XML || {};
+
 
 /* Properties Getter */
     //Helper function to get properties
@@ -90,13 +96,23 @@
       //When our panorama is changed, run the managing function
       var krpano = pano();
       UTASPlugin.SceneID = krpano.get('xml.scene');
+
+      addToPanoHistory(UTASPlugin.SceneID);
+
       UTASPlugin.Spots[UTASPlugin.SceneID] = UTASPlugin.Spots[UTASPlugin.SceneID] || [];
       UTASPlugin.Spots.History[UTASPlugin.SceneID] = UTASPlugin.Spots.History[UTASPlugin.SceneID] || [];
+
+      //Takes a copy of the XML source
+      UTASPlugin.XML[UTASPlugin.SceneID] = krpano.get('xml.content');
 
       //Sets the current index of the spots array for cycling through in click
       UTASPlugin.SpotIndex[UTASPlugin.SceneID] = UTASPlugin.SpotIndex[UTASPlugin.SceneID] || {};
       UpdateHotspots();
       reviveHistory(UTASPlugin.SceneID);
+
+      updatePanoLinks(UTASPlugin.SceneID);
+
+      updatePanoLinks(UTASPlugin.SceneID);
     });
 
     /**
@@ -172,8 +188,7 @@
     {
       var hotspots = [];
       var krpano = document.getElementById("krpanoSWFObject");
-      $content = krpano.get('xml.content');
-      $.each($($content).find("action[name='hidepanopointspots']").html().split(';'), function(key, item) {
+      $.each($(UTASPlugin.XML[UTASPlugin.SceneID]).find("action[name='hidepanopointspots']").html().split(';'), function(key, item) {
         var spotID = item.trim().match(/[^\[]+\[([^\]]+)[.]*/i);
         if(spotID)
         {
@@ -203,40 +218,53 @@
         {
           //Go through our styles list, and find where our hotspot should be
           $.each(UTASPlugin.Styles, function (name, styles) {
-            //Check to make sure the style is to be shown onscreen
-            //set in `styles.tmpl`
-            if(styles.display)
+            //Test if the hotspot is in the array.
+            //indexOf returns -1 if not in the array, and the first entry of the array is index 0, etc..
+            if(styles.styles.indexOf(style) > -1)
             {
-              //Test if the hotspot is in the array.
-              //indexOf returns -1 if not in the array, and the first entry of the array is index 0, etc..
-              if(styles.styles.indexOf(style) > -1)
-              {
-                //If the name of this category doesn't exist yet, we'll add it as an empty array.
-                if(sorted[name] == null) { sorted[name] = []; }
+              //If the name of this category doesn't exist yet, we'll add it as an empty array.
+              if(sorted[name] == null) { sorted[name] = []; }
 
-                //If the name doesn't exist in our spot index object yet, we'll add it and set to 0.
-                UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] = UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] || 0;
+              //If the name doesn't exist in our spot index object yet, we'll add it and set to 0.
+              UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] = UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] || 0;
 
-                //Push the name of the hotspot to the array for our styles clean name.
-                sorted[name].push({'name': v, 'tooltip': ktools.I18N.getInstance().getMessage(krpano.get('hotspot['+v+'].tooltip'))});
+              var orig = krpano.get('hotspot['+v+'].onclick');
 
-                var orig = krpano.get('hotspot['+v+'].onclick');
-                var obj = {
-                  'orig': orig,
-                  'name': v,
-                  'style': style,
-                  'category': name
-                };
-                krpano.set('hotspot['+v+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
+              //Push the name of the hotspot to the array for our styles clean name.
+              sorted[name].push({
+                'name': v,
+                'tooltip': ktools.I18N.getInstance().getMessage(krpano.get('hotspot['+v+'].tooltip')),
+                'pano': getPanoName(orig),
+              });
+              sorted[name]['display'] = styles.display;
+              sorted[name]['isPano'] = styles.isPano;
 
-              } //end if<IndexOf>
-            }   //end if<styles.display>
+              var obj = {
+                'orig': orig,
+                'name': v,
+                'style': style,
+                'category': name,
+              };
+              krpano.set('hotspot['+v+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
+
+            } //end if<IndexOf>
           });   //end .each<UTASPlugin.Styles>
         }       //end if<style !null>
       });       //end .each<hotspots>
 
       //Return our sorted object for the parent function to handle.
       return sorted;
+    }
+
+    function getPanoName(onclickaction)
+    {
+      var func = $(UTASPlugin.XML[UTASPlugin.SceneID]).find("action[name='"+onclickaction+"']").text();
+      var pos = func.indexOf("mainloadscene(");
+      if(pos > -1)
+      {
+        return func.substr(pos+14, 8);
+      }
+      return "";
     }
 
     //Fires when a registered hotspot is clicked
@@ -279,6 +307,54 @@
       {
         return UTASPlugin.Spots.History[UTASPlugin.SceneID].indexOf(obj.name) > -1;
       }
+    }
+
+    //Helper function to manage Pano history
+    function addToPanoHistory(scene)
+    {
+      if(typeof scene == "string")
+      {
+        if(UTASPlugin.VisitedPanoramas.indexOf(scene) == -1)
+        {
+          UTASPlugin.VisitedPanoramas.push(scene);
+        }
+      }
+      else
+      {
+        console.error("inPanoHistory('"+scene+"'): Expected argument type `string`. Type given: " + typeof scene);
+        return false;
+      }
+    }
+
+
+    //Helper function to check if entry in history stack
+    function inPanoHistory(scene)
+    {
+      if(typeof scene == "string")
+      {
+        return UTASPlugin.VisitedPanoramas.indexOf(scene) > -1;
+      }
+      else
+      {
+        console.error("inPanoHistory('"+scene+"'): Expected argument type `string`. Type given: " + typeof scene);
+        return false;
+      }
+    }
+
+    function updatePanoLinks(scene)
+    {
+      $.each(UTASPlugin.Spots[scene], function(key, categories) {
+        if(categories.isPano)
+        {
+          $.each(categories, function(key, spot) {
+            if(inPanoHistory(spot.pano))
+            {
+              var pos = getHotspotPosition(spot.name);
+              createSeenSpot(spot.name, pos.ath, pos.atv, 0, 0);
+            }
+          });
+        }
+      });
     }
 
     //Allows user to toggle console messages from interface
@@ -378,18 +454,21 @@
       if(spots != null)
       {
         $.each(spots, function(name,spot) {
-          var seen = 0;
-          var unseen = 0;
-          $.each(spot, function (k, name) {
-            if(inHistory({'name': name.name})) { seen++; } else { unseen++; }
-          });
-          if(UTASPlugin.Settings.Compact)
+          if(spot.display)
           {
-            string += '<p class="spot-result" data-name="'+name+'">'+name+'<br>Viewed '+seen+' / ' + (unseen+seen) + '</p>';
-          }
-          else
-          {
-            string += '<p class="spot-result" data-name="'+name+'">'+name+': '+seen+' spots seen, '+unseen+' spots unseen.</p>';
+            var seen = 0;
+            var unseen = 0;
+            $.each(spot, function (k, name) {
+              if(inHistory({'name': name.name})) { seen++; } else { unseen++; }
+            });
+            if(UTASPlugin.Settings.Compact)
+            {
+              string += '<p class="spot-result" data-name="'+name+'">'+name+'<br>Viewed '+seen+' / ' + (unseen+seen) + '</p>';
+            }
+            else
+            {
+              string += '<p class="spot-result" data-name="'+name+'">'+name+': '+seen+' spots seen, '+unseen+' spots unseen.</p>';
+            }
           }
         });
       }
