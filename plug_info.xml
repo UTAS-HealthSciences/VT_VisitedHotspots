@@ -43,6 +43,12 @@
             <row id="settings_pano">
               <bool id="visitedPanos" name="tr: Show on visited panos?" default="true" />
             </row>
+            <row id="settings_hotspotcycling">
+              <select id="cycling" name="tr: Cycle through " default="all">
+                <item value="all" name="tr: all hotspots" />
+                <item value="unseen" name="tr: unseen hotspots" />
+              </select>
+            </row>
           </group>
 
             <advanced id="advancedParams">

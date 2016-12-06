@@ -33,6 +33,7 @@
 
     //Global spotindex array
     UTASPlugin.SpotIndex = UTASPlugin.SpotIndex || {};
+    UTASPlugin.SpotStack = UTASPlugin.SpotStack || {};
 
     //Resource location
     UTASPlugin.Resources = UTASPlugin.Resources || "";
@@ -84,6 +85,8 @@
 
       //Is our display going to be compact or verbose?
       UTASPlugin.Settings.Compact = getProp("compactView", "bool");
+      UTASPlugin.Settings.ShowVisitedPanos = getProp("visitedPanos", "bool");
+      UTASPlugin.Settings.HotspotCycling = getProp("infoCycling", "string"); // Currently accepted values are: `all`, `unseen`;
 
       UTASPlugin.Resources = getProp("data_dir", "string") + '/' + getProp("plugin_dir", "string") + "/";
       UTASPlugin.HotspotImage = getProp("imageSrc", "string");
@@ -107,12 +110,14 @@
 
       //Sets the current index of the spots array for cycling through in click
       UTASPlugin.SpotIndex[UTASPlugin.SceneID] = UTASPlugin.SpotIndex[UTASPlugin.SceneID] || {};
+      UTASPlugin.SpotStack[UTASPlugin.SceneID] = UTASPlugin.SpotStack[UTASPlugin.SceneID] || {};
+
       UpdateHotspots();
       reviveHistory(UTASPlugin.SceneID);
-
-      updatePanoLinks(UTASPlugin.SceneID);
-
-      updatePanoLinks(UTASPlugin.SceneID);
+      if(UTASPlugin.Settings.ShowVisitedPanos)
+      {
+        updatePanoLinks(UTASPlugin.SceneID);
+      }
     });
 
     /**
@@ -228,6 +233,15 @@
               //If the name doesn't exist in our spot index object yet, we'll add it and set to 0.
               UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] = UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] || 0;
 
+              if(styles.display)
+              {
+                //If the hotspot category doesn't exist yet, instantialize it, otherwise pass in the existing value;
+                UTASPlugin.SpotStack[UTASPlugin.SceneID][name] = UTASPlugin.SpotStack[UTASPlugin.SceneID][name] || [];
+
+                //Add the item to the stack
+                UTASPlugin.SpotStack[UTASPlugin.SceneID][name].push(v);
+              }
+
               var orig = krpano.get('hotspot['+v+'].onclick');
 
               //Push the name of the hotspot to the array for our styles clean name.
@@ -258,11 +272,14 @@
 
     function getPanoName(onclickaction)
     {
-      var func = $(UTASPlugin.XML[UTASPlugin.SceneID]).find("action[name='"+onclickaction+"']").text();
-      var pos = func.indexOf("mainloadscene(");
-      if(pos > -1)
+      if(UTASPlugin.Settings.ShowVisitedPanos)
       {
-        return func.substr(pos+14, 8);
+        var func = $(UTASPlugin.XML[UTASPlugin.SceneID]).find("action[name='"+onclickaction+"']").text();
+        var pos = func.indexOf("mainloadscene(");
+        if(pos > -1)
+        {
+          return func.substr(pos+14, 8);
+        }
       }
       return "";
     }
@@ -288,6 +305,14 @@
           UTASPlugin.Spots.History[UTASPlugin.SceneID].push(obj.name);
           var pos = getHotspotPosition(obj.name);
           createSeenSpot(obj.name, pos.ath, pos.atv, 0, 0);
+
+          if(UTASPlugin.Settings.HotspotCycling == 'unseen') {
+            var index = UTASPlugin.SpotStack[UTASPlugin.SceneID][obj.category].indexOf(obj.name);
+            if(index > -1)
+            {
+              UTASPlugin.SpotStack[UTASPlugin.SceneID][obj.category].splice(index, 1);
+            }
+          }
         }
       }
     }
@@ -510,17 +535,28 @@
 
     $(document).on("click", ".spot-result", function() {
 
-      //This stupidly long and convoluted string tries to find the name of the hotspot at the currently stored index.
-      //If you can think of a better way, refactor it!
-      var hotspotName = (UTASPlugin.Spots[UTASPlugin.SceneID][$(this).data("name")][UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]]).name;
-      UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]++;
+      //Decides whether or not clicking should have any effect.
+      var bCanClick = true;
 
-      var krpano = document.getElementById("krpanoSWFObject");
-      krpano.call('looktohotspot('+hotspotName+')');
-
-      if(UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] >= UTASPlugin.Spots[UTASPlugin.SceneID][$(this).data("name")].length)
+      if(bCanClick)
       {
-        UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] = 0;
+        //This stupidly long and convoluted string tries to find the name of the hotspot at the currently stored index.
+        //If you can think of a better way, refactor it!
+        var hotspotName = (UTASPlugin.SpotStack[UTASPlugin.SceneID][$(this).data("name")][UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]]);
+
+        var krpano = document.getElementById("krpanoSWFObject");
+        krpano.call('looktohotspot('+hotspotName+')');
+
+        UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]++;
+        if(UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] >= UTASPlugin.SpotStack[UTASPlugin.SceneID][$(this).data("name")].length)
+        {
+          UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] = 0;
+        }
+
+      }
+      else
+      {
+        alert("All infospots in this location have been visited.");
       }
     });
 
