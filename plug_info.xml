@@ -29,6 +29,9 @@
             <row id="fontcolour">
               <color id="fontcolor" name="tr: Font color" default="#ffffff" needalpha="false" defaultalpha="1.0" />
             </row>
+            <row id="fontcolourhover">
+              <color id="fontcolorhover" name="tr: Font color on hover" source="currentProjectForeground" needalpha="false" defaultalpha="1.0" />
+            </row>
             <row id="lineheight">
               <number id="lineheight" name="tr: Line Height" default="20" minimum="0" maximum="1000" suffix="px" />
             </row>

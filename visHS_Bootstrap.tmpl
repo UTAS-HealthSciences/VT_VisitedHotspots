@@ -119,7 +119,6 @@
       cleanSessions();
 
       var session = fetchSession(pID, getProp("storageType", "string", pID));
-      console.log(session);
       if(session !== false)
       {
         UTASPlugin = session;
@@ -647,6 +646,13 @@
       addStyle(".spot-result", font);
 
       //Add in more style information here as needed.
+      var fColourHover = ktools.Color.hex2rgb(getProp("font_colour_hover", "string"));
+      addStyle(".spot-result:hover", {
+        'color': "rgba("+fColourHover[0]+","+fColourHover[1]+","+fColourHover[2]+","+getProp("font_alpha", "float")+")",
+        'cursor': 'pointer',
+        'font-weight': 'bold',
+        'text-shadow': "rgba("+fColour[0]+","+fColour[1]+","+fColour[2]+","+getProp("font_alpha", "float")+") 1px 1px 3.2px"
+      });
 
       generateCSS();
 
