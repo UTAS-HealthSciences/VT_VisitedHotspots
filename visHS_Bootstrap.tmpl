@@ -7,6 +7,7 @@
 /* Plugin-wide Object Manager */
 
     //Initiates a container
+
     var UTASPlugin = UTASPlugin || {};
 
     //plugin-specific global-access plugin ID
@@ -34,6 +35,8 @@
     //Global spotindex array
     UTASPlugin.SpotIndex = UTASPlugin.SpotIndex || {};
     UTASPlugin.SpotStack = UTASPlugin.SpotStack || {};
+    UTASPlugin.SpotStackHistory = UTASPlugin.SpotStackHistory || {};
+
 
     //Resource location
     UTASPlugin.Resources = UTASPlugin.Resources || "";
@@ -42,6 +45,44 @@
     //XML Source
     UTASPlugin.XML = UTASPlugin.XML || {};
 
+    //Can be enabled from console.
+    //Used for debugging purposes.
+    var bCleanReload = false;
+
+/* Storage Manager */
+    function storeSession(ID, value, type, expiry)
+    {
+      if(typeof type === "undefined") { type = 'localStorage'; }
+
+      //Disables the session saving.
+      if(type == 'visit') { return; }
+
+      if(type != 'localStorage' && type != 'sessionStorage') { type = 'localStorage'; }
+      if(typeof expiry === "undefined") { expiry = 28; }
+
+      var storage = window[type];
+      storage.setItem(ID, JSON.stringify(value));
+
+      var now = new Date();
+      now.setDate(now.getDate() + expiry);
+      storage.setItem('Expiry', now);
+      logMsg("Session saved to " + type);
+    }
+
+    function fetchSession(ID, type)
+    {
+      if(typeof type === "undefined") { type = 'localStorage'; }
+      if(type != 'localStorage' && type != 'sessionStorage') { type = 'localStorage'; }
+      return window[type].getItem(ID) ? JSON.parse(window[type].getItem(ID)) : false;
+    }
+
+    function cleanSessions()
+    {
+      if(localStorage.getItem('Expiry') && localStorage.getItem('Expiry') > Date.now())
+      {
+        localStorage.clear();
+      }
+    }
 
 /* Properties Getter */
     //Helper function to get properties
@@ -56,9 +97,9 @@
       return val;
     }
 
+
     function pano() {
-      UTASPlugin.Pano = UTASPlugin.Pano || document.getElementById("krpanoSWFObject");
-      return UTASPlugin.Pano;
+      return document.getElementById("krpanoSWFObject");
     }
 
 /* Hotspot Manager */
@@ -74,6 +115,16 @@
 
     function listHotspots(pID)
     {
+      //Gets rid of any outdated data.
+      cleanSessions();
+
+      var session = fetchSession(pID, getProp("storageType", "string", pID));
+      console.log(session);
+      if(session !== false)
+      {
+        UTASPlugin = session;
+      }
+
       //Find KRPano object in DOM
       var krpano = pano();
 
@@ -88,8 +139,14 @@
       UTASPlugin.Settings.ShowVisitedPanos = getProp("visitedPanos", "bool");
       UTASPlugin.Settings.HotspotCycling = getProp("infoCycling", "string"); // Currently accepted values are: `all`, `unseen`;
 
+      UTASPlugin.SessionType = getProp("storageType", "string");
+      UTASPlugin.SessionExpiry = getProp("storageDuration", "int");
+
       UTASPlugin.Resources = getProp("data_dir", "string") + '/' + getProp("plugin_dir", "string") + "/";
       UTASPlugin.HotspotImage = getProp("imageSrc", "string");
+
+      //Saves the current plugin data to the localStorage every 10 seconds (10 * 1000 milliseconds), in case onbeforeunload isn't fired.
+      setInterval(function() {storeSession(pID, UTASPlugin, UTASPlugin.SessionType, UTASPlugin.SessionExpiry)}, 10*1000);
     }
 
     /**
@@ -111,6 +168,7 @@
       //Sets the current index of the spots array for cycling through in click
       UTASPlugin.SpotIndex[UTASPlugin.SceneID] = UTASPlugin.SpotIndex[UTASPlugin.SceneID] || {};
       UTASPlugin.SpotStack[UTASPlugin.SceneID] = UTASPlugin.SpotStack[UTASPlugin.SceneID] || {};
+      UTASPlugin.SpotStackHistory[UTASPlugin.SceneID] = UTASPlugin.SpotStackHistory[UTASPlugin.SceneID] || {};
 
       UpdateHotspots();
       reviveHistory(UTASPlugin.SceneID);
@@ -237,9 +295,13 @@
               {
                 //If the hotspot category doesn't exist yet, instantialize it, otherwise pass in the existing value;
                 UTASPlugin.SpotStack[UTASPlugin.SceneID][name] = UTASPlugin.SpotStack[UTASPlugin.SceneID][name] || [];
+                UTASPlugin.SpotStackHistory[UTASPlugin.SceneID][name] = UTASPlugin.SpotStackHistory[UTASPlugin.SceneID][name] || [];
 
-                //Add the item to the stack
-                UTASPlugin.SpotStack[UTASPlugin.SceneID][name].push(v);
+                //Add the item to the stack if it hasn't been added before to either the seen or unseen stack.
+                if(UTASPlugin.SpotStack[UTASPlugin.SceneID][name].indexOf(v) == -1 && UTASPlugin.SpotStackHistory[UTASPlugin.SceneID][name].indexOf(v) == -1)
+                {
+                  UTASPlugin.SpotStack[UTASPlugin.SceneID][name].push(v);
+                }
               }
 
               var orig = krpano.get('hotspot['+v+'].onclick');
@@ -310,7 +372,8 @@
             var index = UTASPlugin.SpotStack[UTASPlugin.SceneID][obj.category].indexOf(obj.name);
             if(index > -1)
             {
-              UTASPlugin.SpotStack[UTASPlugin.SceneID][obj.category].splice(index, 1);
+              var item = UTASPlugin.SpotStack[UTASPlugin.SceneID][obj.category].splice(index, 1);
+              UTASPlugin.SpotStackHistory[UTASPlugin.SceneID][obj.category].push(item[0]);
             }
           }
         }
@@ -526,7 +589,7 @@
       krpano.set('hotspot['+name+'].url', UTASPlugin.Resources+UTASPlugin.HotspotImage);
       krpano.set('hotspot['+name+'].edge', 'leftbottom');
       krpano.set('hotspot['+name+'].zorder', 100);
-      //krpano.set('hotspot['+name+'].keep', true);
+      krpano.set('hotspot['+name+'].enabled', false);
       krpano.set('hotspot['+name+'].ath', parseFloat(ath)+parseFloat(xoffset));
       krpano.set('hotspot['+name+'].atv', parseFloat(atv)+parseFloat(yoffset));
     }
@@ -610,3 +673,19 @@
       $("head").append("<style>"+rules+"</style>");
 
     }
+
+
+  /* Fires when the window is closed.
+   * Used to ensure that we try and save the data the user has left, in case the autosave hasn't fired yet.
+   */
+  window.onbeforeunload = function(e){
+    if(bCleanReload)
+    {
+        localStorage.clear();
+        sessionStorage.clear();
+    }
+    else
+    {
+      storeSession(UTASPlugin.ID, UTASPlugin, UTASPlugin.SessionType, UTASPlugin.SessionExpiry);
+    }
+  }

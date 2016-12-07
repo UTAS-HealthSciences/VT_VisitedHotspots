@@ -1,10 +1,10 @@
 <plugin id="UTAS_PTPPlugin_VisibleHotspots"
-        category="tr:Advanced"
-        name="tr:Available Hotspots"
+        category="tr:Navigation"
+        name="tr:Visited Hotspots"
         version="1.0"
         isGraphical="true"
         multipleInstance="true"
-        description="tr:Shows seen and unseen hotspots on screen."
+        description="tr:Shows seen and unseen hotspots and panoramas on screen."
         author="Connor Deckers (cdeckers) 2016">
 
         <parameters>
@@ -51,9 +51,26 @@
             </row>
           </group>
 
-            <advanced id="advancedParams">
-              <bool id="consoleLog" name="tr: Log to console" details="tr: Log information to console during use." default="true" />
-            </advanced>
+          <advanced id="advancedParams">
+            <group id="sessionDetails" name="tr: User Session Settings">
+              <row id="sessions">
+                <select id="sessionOption" name="tr: Panorama should store visited data " default="localStorage">
+                  <item value="visit" name="While the panorama is open" />
+                  <item value="sessionStorage" name="While their browser is open" />
+                  <item value="localStorage" name="For specified number of days" />
+                </select>
+              </row>
+              <row id="sessionExpiry" conditionalParam="sessionOption" conditionalValues="localStorage">
+                <number id="sessionDays" name="tr: Data should remain available for" default="7" minimum="1" maximum="365" suffix="days"/>
+              </row>
+            </group>
+
+            <group id="debug" name="tr: Debugging">
+              <row id="rDebug">
+                <bool id="consoleLog" name="tr: Log to console" details="tr: Log information to console during use." default="true" />
+              </row>
+            </group>
+          </advanced>
 
         </parameters>
 
