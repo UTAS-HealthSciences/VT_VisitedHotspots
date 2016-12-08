@@ -321,8 +321,13 @@
                 'style': style,
                 'category': name,
               };
-              krpano.set('hotspot['+v+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
 
+              //For some reason, tagging the onclick function of a panospot stopped it zooming in, even when calling the predefined action manually.
+              //I have no idea why this is, but this workaround fixes it, as the pano information is stored differently to hotspot clicks.
+              if(!styles.isPano)
+              {
+                krpano.set('hotspot['+v+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
+              }
             } //end if<IndexOf>
           });   //end .each<UTASPlugin.Styles>
         }       //end if<style !null>
@@ -351,7 +356,7 @@
     function hotspotClick(obj)
     {
       obj = JSON.parse(obj);
-      var krpano = document.getElementById("krpanoSWFObject");
+      krpano = pano();
       krpano.call(obj.orig);
       addToHistory(obj);
       refreshView();
@@ -602,7 +607,7 @@
         var hotspotName = (UTASPlugin.SpotStack[UTASPlugin.SceneID][$(this).data("name")][UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]]);
 
         var krpano = document.getElementById("krpanoSWFObject");
-        krpano.call('looktohotspot('+hotspotName+', 90)');
+        krpano.call('looktohotspot('+hotspotName+',get(view.fovmin),smooth(720,-720,720))');
 
         UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]++;
         if(UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] >= UTASPlugin.SpotStack[UTASPlugin.SceneID][$(this).data("name")].length)
@@ -658,6 +663,8 @@
         'background-color': 'rgba(50,50,50,0.9)',
         'cursor': 'pointer',
       });
+
+      addStyle('.spot-box:empty', {'display': 'none' });
 
       // //Add in more style information here as needed.
       // var fColourHover = ktools.Color.hex2rgb(getProp("font_colour_hover", "string"));
