@@ -143,6 +143,7 @@
 
       UTASPlugin.Resources = getProp("data_dir", "string") + '/' + getProp("plugin_dir", "string") + "/";
       UTASPlugin.HotspotImage = getProp("imageSrc", "string");
+      UTASPlugin.LinkImage = getProp("linkImg", "string");
 
       //Saves the current plugin data to the localStorage every 10 seconds (10 * 1000 milliseconds), in case onbeforeunload isn't fired.
       setInterval(function() {storeSession(pID, UTASPlugin, UTASPlugin.SessionType, UTASPlugin.SessionExpiry)}, 10*1000);
@@ -461,15 +462,9 @@
       if(!$('#'+UTASPlugin.ID).length)
       {
         //Get the container draw settings.
-        var preStr = "ptplugin["+UTASPlugin.ID+"].settings[0].option[";  /* Concat with necessary var */  var endStr = '].value';
-
         var position = getProp('position', "string");
         var margin_x = getProp('margin_x', "int");
         var margin_y = getProp('margin_y', "int");
-
-        // var position = getKrValue(preStr+'position'+endStr, "string");
-        // var margin_x = getKrValue(preStr+'margin_x'+endStr, "int");
-        // var margin_y = getKrValue(preStr+'margin_y'+endStr, "int");
 
         //Create the square
         var square = document.createElement('div');
@@ -537,7 +532,7 @@
     //Formats our text from the Spots data and returns it tidied for the container
     function formatInformation(spots)
     {
-      var string = '<div style="position:absolute; bottom:0;">';
+      var string = '<div class="spot-box">';
       if(spots != null)
       {
         $.each(spots, function(name,spot) {
@@ -550,11 +545,11 @@
             });
             if(UTASPlugin.Settings.Compact)
             {
-              string += '<p class="spot-result" data-name="'+name+'">'+name+'<br>Viewed '+seen+' / ' + (unseen+seen) + '</p>';
+              string += '<p class="spot-result" data-name="'+name+'">'+name+' '+seen+' / ' + (unseen+seen) + '</p>';
             }
             else
             {
-              string += '<p class="spot-result" data-name="'+name+'">'+name+': '+seen+' spots seen, '+unseen+' spots unseen.</p>';
+              string += '<p class="spot-result" data-name="'+name+'">'+name+'<br>Viewed '+seen+' / ' + (unseen+seen) + '</p>';
             }
           }
         });
@@ -607,7 +602,7 @@
         var hotspotName = (UTASPlugin.SpotStack[UTASPlugin.SceneID][$(this).data("name")][UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]]);
 
         var krpano = document.getElementById("krpanoSWFObject");
-        krpano.call('looktohotspot('+hotspotName+')');
+        krpano.call('looktohotspot('+hotspotName+', 90)');
 
         UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]++;
         if(UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] >= UTASPlugin.SpotStack[UTASPlugin.SceneID][$(this).data("name")].length)
@@ -637,6 +632,11 @@
         "color": "rgba("+fColour[0]+","+fColour[1]+","+fColour[2]+","+getProp("font_alpha", "float")+")",
         "line-height": getProp("lineheight", "int")+"px",
         "text-shadow": "rgb(0, 0, 0) 1px 1px 3.2px",
+        "background-image": 'url('+UTASPlugin.Resources+UTASPlugin.LinkImage+')',
+        "background-repeat": "no-repeat",
+        "padding": "0px 0 0 32px",
+        "background-position": "0px",
+        "background-size": "contain",
       };
       if(UTASPlugin.Settings.Compact)
       {
@@ -645,14 +645,30 @@
       }
       addStyle(".spot-result", font);
 
-      //Add in more style information here as needed.
-      var fColourHover = ktools.Color.hex2rgb(getProp("font_colour_hover", "string"));
-      addStyle(".spot-result:hover", {
-        'color': "rgba("+fColourHover[0]+","+fColourHover[1]+","+fColourHover[2]+","+getProp("font_alpha", "float")+")",
-        'cursor': 'pointer',
-        'font-weight': 'bold',
-        'text-shadow': "rgba("+fColour[0]+","+fColour[1]+","+fColour[2]+","+getProp("font_alpha", "float")+") 1px 1px 3.2px"
+      addStyle(".spot-box", {
+        'position':'absolute',
+        'bottom':'0',
+        'padding': '10px',
+        'background-color': 'rgba(75,75,75,0.8)',
+        'border': '1px white solid',
+        'border-radius': '3px',
       });
+
+      addStyle(".spot-box:hover", {
+        'background-color': 'rgba(50,50,50,0.9)',
+        'cursor': 'pointer',
+      });
+
+      // //Add in more style information here as needed.
+      // var fColourHover = ktools.Color.hex2rgb(getProp("font_colour_hover", "string"));
+      // addStyle(".spot-result:hover", {
+      //   'color': "rgba("+fColourHover[0]+","+fColourHover[1]+","+fColourHover[2]+","+getProp("font_alpha", "float")+")",
+      //   'cursor': 'pointer',
+      //   'font-weight': 'bold',
+      //   'text-shadow': "rgba("+fColour[0]+","+fColour[1]+","+fColour[2]+","+getProp("font_alpha", "float")+") 1px 1px 3.2px"
+      // });
+
+
 
       generateCSS();
 

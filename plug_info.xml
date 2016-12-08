@@ -40,8 +40,11 @@
             </row>
           </group>
           <group id="hotspotSettings" name="tr: Hotspot Settings">
-            <row id="image_picker">
+            <row id="image_picker_visited">
               <filechooser id="visitedImage" name="tr: Visited Hotspot Image" default="" filters="images" allowremote="false" />
+            </row>
+            <row id="image_picker_link">
+              <filechooser id="linkImage" name="tr: Link denoting image" default="" filters="images" allowremote="false" />
             </row>
             <row id="settings_pano">
               <bool id="visitedPanos" name="tr: Show on visited panos?" default="true" />
@@ -86,6 +89,7 @@
 
         <resources>
           <file url="Checkbox.png" />
+          <file url="MagnifyingGlass.png" />
         </resources>
 
 </plugin>
