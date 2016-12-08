@@ -89,7 +89,7 @@
 
         <resources>
           <file url="Checkbox.png" />
-          <file url="MagnifyingGlass.png" />
+          <file url="magnifyingglass.png" />
         </resources>
 
 </plugin>
