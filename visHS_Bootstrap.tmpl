@@ -343,13 +343,18 @@ var _version = 1.02;
 
     function getPanoName(onclickaction)
     {
+      //Regex to find pano name.
+      var regex = /mainloadscene\(([^\)]+)/ig;
+
       if(UTASPlugin.Settings.ShowVisitedPanos)
       {
         var func = $(UTASPlugin.XML[UTASPlugin.SceneID]).find("action[name='"+onclickaction+"']").text();
         var pos = func.indexOf("mainloadscene(");
         if(pos > -1)
         {
-          return func.substr(pos+14, 8);
+          var rx = regex.exec(func);
+          console.log(rx);
+          return rx[1];
         }
       }
       return "";
