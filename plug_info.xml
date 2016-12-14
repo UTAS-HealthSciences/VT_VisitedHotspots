@@ -1,5 +1,5 @@
 <plugin id="UTAS_PTPPlugin_VisibleHotspots"
-        category="tr:Navigation"
+        category="tr:UTAS"
         name="tr:Visited Hotspots"
         version="1.0"
         isGraphical="true"
@@ -55,6 +55,27 @@
                 <item value="unseen" name="tr: unseen hotspots" />
               </select>
             </row>
+          </group>
+          <group id="floorplanSettings" name="tr: Floorplan settings">
+            <row id="r_showOnFloorplan">
+              <bool id="showOnFloorplan" name="tr: Show seen markers on floorplan?" default="true" />
+            </row>
+            <group id="g_Scaling" conditionalParam="showOnFloorplan" conditionalValues="true" name="tr: Icon Scaling">
+              <row id="r_width">
+                <number id="fp_width" name="tr: Icon width" default="15" minimum="1" maximum="64" suffix="px" />
+              </row>
+              <row id="r_height">
+                <number id="fp_height" name="tr: Icon height" default="15" minimum="1" maximum="64" suffix="px" />
+              </row>
+            </group>
+            <group id="g_Posititioning" conditionalParam="showOnFloorplan" conditionalValues="true" name="tr: Icon Positioning">
+              <row id="r_top">
+                <number id="fp_top" name="tr: Distance from top" default="7" suffix="px" />
+              </row>
+              <row id="r_left">
+                <number id="fp_left" name="tr: Distance from left" default="7" suffix="px" />
+              </row>
+            </group>
           </group>
 
           <advanced id="advancedParams">

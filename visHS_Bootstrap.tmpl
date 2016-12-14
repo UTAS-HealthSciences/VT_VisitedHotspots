@@ -4,7 +4,7 @@
 * Date: 24 November 2016
 */
 
-var _version = 1.02;
+var _version = 1.03;
 
 /* Plugin-wide Object Manager */
 
@@ -175,6 +175,7 @@ var _version = 1.02;
       UTASPlugin.SpotStackHistory[UTASPlugin.SceneID] = UTASPlugin.SpotStackHistory[UTASPlugin.SceneID] || {};
 
       UpdateHotspots();
+      floorplanHistoryManager();
       reviveHistory(UTASPlugin.SceneID);
       if(UTASPlugin.Settings.ShowVisitedPanos)
       {
@@ -684,7 +685,11 @@ var _version = 1.02;
       //   'text-shadow': "rgba("+fColour[0]+","+fColour[1]+","+fColour[2]+","+getProp("font_alpha", "float")+") 1px 1px 3.2px"
       // });
 
-
+      addStyle('.fp_seenmarker', {
+        'position': 'absolute',
+        'left': getProp('fp_left', 'int')+'px',
+        'top': getProp('fp_top', 'int')+'px',
+      });
 
       generateCSS();
 
@@ -710,6 +715,74 @@ var _version = 1.02;
 
       $("head").append("<style>"+rules+"</style>");
 
+    }
+
+
+
+
+
+/**
+ * Floor plan editing happens here.
+ */
+
+    function floorplanHistoryManager()
+    {
+      if(getProp('fp_show', 'bool'))
+      {
+        var spots = retrieveFloorplanSpots('floorPlan');
+        searchFloorplanSpots(spots, 'floorPlan');
+      }
+    }
+
+    function retrieveFloorplanSpots(pluginName)
+    {
+      if(typeof pluginName == 'undefined') { console.error('Plugin name must be defined!'); return false; }
+      var p = pano();
+      var spots = p.get('ptplugin['+pluginName+'].floorplanItems.floorplanItem[0].spot');
+      spots = spots.getArray();
+      var items = {};
+      $.each(spots, function(k,v)
+      {
+        items[v.scene] = {
+          'spotname': v.name,
+          'scene': v.scene,
+          'jsclick': v.jsclick,
+          'isscene': v.isscene,
+        };
+      });
+      return items;
+    }
+
+    function searchFloorplanSpots(spots, pluginName)
+    {
+      var p = pano();
+      if(!p.get('ptplugin['+pluginName+'].jsready'))
+      {
+        return setTimeout(function(){searchFloorplanSpots(spots, pluginName);}, 500);
+      }
+
+      $.each(spots, function(k,v)
+      {
+        if(inPanoHistory(k))
+        {
+          applySeenSpotToFloorplan(v);
+        }
+      });
+    }
+
+    function applySeenSpotToFloorplan(spot)
+    {
+      var $img = $('<img id="'+spot.spotname+'_seenmarker">').attr({
+        'src': UTASPlugin.Resources+UTASPlugin.HotspotImage,
+        'width': getProp("fp_width", "int"),
+        'height': getProp('fp_height', 'int'),
+        'class': 'fp_seenmarker',
+      });
+
+      if(!$('#'+spot.spotname+'_seenmarker').length)
+      {
+        $("#"+spot.spotname+"_img").append($img);
+      }
     }
 
 
