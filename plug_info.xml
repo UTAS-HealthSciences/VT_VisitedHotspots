@@ -57,23 +57,23 @@
             </row>
           </group>
           <group id="floorplanSettings" name="tr: Floorplan settings">
-            <row id="r_showOnFloorplan">
-              <bool id="showOnFloorplan" name="tr: Show seen markers on floorplan?" default="true" />
+            <row id="r_fpshowOnFloorplan">
+              <bool id="showOnFloorplan" name="tr: Show seen overlay markers on floorplan?" default="true" />
             </row>
-            <group id="g_Scaling" conditionalParam="showOnFloorplan" conditionalValues="true" name="tr: Icon Scaling">
-              <row id="r_width">
+            <group id="g_OverlayScaling" conditionalParam="showOnFloorplan" conditionalValues="true" name="tr: Overlay Scaling">
+              <row id="r_fpwidth">
                 <number id="fp_width" name="tr: Icon width" default="15" minimum="1" maximum="64" suffix="px" />
               </row>
-              <row id="r_height">
+              <row id="r_fpheight">
                 <number id="fp_height" name="tr: Icon height" default="15" minimum="1" maximum="64" suffix="px" />
               </row>
             </group>
-            <group id="g_Posititioning" conditionalParam="showOnFloorplan" conditionalValues="true" name="tr: Icon Positioning">
-              <row id="r_top">
+            <group id="g_OverlayPosititioning" conditionalParam="showOnFloorplan" conditionalValues="true" name="tr: Overlay Positioning">
+              <row id="r_fptop">
                 <number id="fp_top" name="tr: Distance from top" default="7" suffix="px" />
               </row>
-              <row id="r_left">
-                <number id="fp_left" name="tr: Distance from left" default="7" suffix="px" />
+              <row id="r_fpleft">
+                <number id="fp_left" name="tr: Distance from left" default="8" suffix="px" />
               </row>
             </group>
           </group>

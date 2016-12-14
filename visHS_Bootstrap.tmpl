@@ -131,8 +131,15 @@ var _version = 1.03;
       //Find KRPano object in DOM
       var krpano = pano();
 
-      //Hook custom event into the "On New Pano" event of KRPano DOM object
-      krpano.set("events.onnewpano", function() { $(document).trigger("pano_changed"); });
+      var preFunc = krpano.get('events.onnewpano');
+      krpano.set('events.onnewpano', function() {
+        //Hook custom event into the "On New Pano" event of KRPano DOM object
+        $(document).trigger("pano_changed");
+        if(typeof preFunc == 'function')
+        {
+          preFunc(this, arguments);
+        }
+      });
 
       //Set our global plugin ID
       UTASPlugin.ID = pID;
@@ -354,7 +361,6 @@ var _version = 1.03;
         if(pos > -1)
         {
           var rx = regex.exec(func);
-          console.log(rx);
           return rx[1];
         }
       }
