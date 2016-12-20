@@ -56,3 +56,34 @@
 		// <option name="alpha" value="{{ p.myColor.alpha }}" type="float" />
 	</settings>
 </ptplugin>
+
+<action name="jsFireEvent_{{p.id}}" type="Javascript" autorun=""><![CDATA[
+	$(document).trigger(args[1], args);
+]]></action>
+
+<events onenterfullscreen="jsFireEvent_{{p.id}}('pano_onenterfullscreen', {{p.id}})"
+        onexitfullscreen="jsFireEvent_{{p.id}}('pano_onexitfullscreen', {{p.id}})"
+        onxmlcomplete="jsFireEvent_{{p.id}}('pano_onxmlcomplete', {{p.id}})"
+        onpreviewcomplete="jsFireEvent_{{p.id}}('pano_onpreviewcomplete', {{p.id}})"
+        onloadcomplete="jsFireEvent_{{p.id}}('pano_onloadcomplete', {{p.id}})"
+        onnewpano="jsFireEvent_{{p.id}}('pano_onnewpano', {{p.id}})"
+        onremovepano="jsFireEvent_{{p.id}}('pano_onremovepano', {{p.id}})"
+        onnewscene="jsFireEvent_{{p.id}}('pano_onnewscene', {{p.id}})"
+        onloaderror="jsFireEvent_{{p.id}}('pano_onloaderror', {{p.id}})"
+        onkeydown="jsFireEvent_{{p.id}}('pano_onkeydown', {{p.id}})"
+        onkeyup="jsFireEvent_{{p.id}}('pano_onkeyup', {{p.id}})"
+        onclick="jsFireEvent_{{p.id}}('pano_onclick', {{p.id}})"
+        onmousedown="jsFireEvent_{{p.id}}('pano_onmousedown', {{p.id}})"
+        onmouseup="jsFireEvent_{{p.id}}('pano_onmouseup', {{p.id}})"
+        onmousewheel="jsFireEvent_{{p.id}}('pano_onmousewheel', {{p.id}})"
+        onidle="jsFireEvent_{{p.id}}('pano_onidle', {{p.id}})"
+        onviewchange="jsFireEvent_{{p.id}}('pano_onviewchange', {{p.id}})"
+        onviewchanged="jsFireEvent_{{p.id}}('pano_onviewchanged', {{p.id}})"
+        onresize="jsFireEvent_{{p.id}}('pano_onresize', {{p.id}})"
+        onautorotatestart="jsFireEvent_{{p.id}}('pano_onautorotatestart', {{p.id}})"
+        onautorotatestop="jsFireEvent_{{p.id}}('pano_onautorotatestop', {{p.id}})"
+        onautorotateoneround="jsFireEvent_{{p.id}}('pano_onautorotateoneround', {{p.id}})"
+        onautorotatechange="jsFireEvent_{{p.id}}('pano_onautorotatechange', {{p.id}})"
+				hidetourcontrols="jsFireEvent_{{p.id}}('pano_hidetourcontrols', {{p.id}})"
+				showtourcontrols="jsFireEvent_{{p.id}}('pano_showtourcontrols', {{p.id}})"
+        />

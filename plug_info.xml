@@ -94,7 +94,7 @@
 
             <group id="debug" name="tr: Debugging">
               <row id="rDebug">
-                <bool id="consoleLog" name="tr: Log to console" details="tr: Log information to console during use." default="true" />
+                <bool id="consoleLog" name="tr: Log to console" details="tr: Log information to console during use." default="false" />
               </row>
             </group>
           </advanced>

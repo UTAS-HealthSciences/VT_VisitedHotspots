@@ -128,18 +128,16 @@ var _version = 1.03;
         UTASPlugin = session;
       }
 
-      //Find KRPano object in DOM
-      var krpano = pano();
+      // var preFunc = krpano.get('events.onnewpano');
+      // krpano.set('events.onnewpano', function() {
+      //   //Hook custom event into the "On New Pano" event of KRPano DOM object
+      //   $(document).trigger("pano_changed");
+      //   if(typeof preFunc == 'function')
+      //   {
+      //     preFunc(this, arguments);
+      //   }
+      // });
 
-      var preFunc = krpano.get('events.onnewpano');
-      krpano.set('events.onnewpano', function() {
-        //Hook custom event into the "On New Pano" event of KRPano DOM object
-        $(document).trigger("pano_changed");
-        if(typeof preFunc == 'function')
-        {
-          preFunc(this, arguments);
-        }
-      });
 
       //Set our global plugin ID
       UTASPlugin.ID = pID;
@@ -163,7 +161,7 @@ var _version = 1.03;
     /**
      * When the panorama is changed, this event finds the new scene, sets the new variables for it into the global config manager (@see {@link ConfigManager}).
      */
-    $(document).on('pano_changed', function() {
+    $(document).on('pano_onnewpano', function(event) {
       //When our panorama is changed, run the managing function
       var krpano = pano();
       UTASPlugin.SceneID = krpano.get('xml.scene');
