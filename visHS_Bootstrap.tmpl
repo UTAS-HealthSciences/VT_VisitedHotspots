@@ -4,711 +4,294 @@
 * Date: 24 November 2016
 */
 
-var _version = 1.03;
+var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (function( $, undefined ) {
+  function plugin(args) {
+    var pub = {}; //Public facing functions and variables.
+    var priv = {}; //Helper container to hold known-private variables.
 
-/* Plugin-wide Object Manager */
-
-    //Initiates a container
-
-    var UTASPlugin = UTASPlugin || {};
+    var settings = {};
+    var defaults = {
+      id: '',
+      font: {
+        size: '12px',
+        family: 'Calibri',
+        decoration: 'none',
+        style: 'normal',
+        weight: 'normal',
+        color: 'white',
+        shadow: '',
+      },
+      position: 'topleft',
+      margin: {
+        x: 0,
+        y: 0,
+      },
+      parent: "#panoDIV",
+      visibility: true,
+      HotspotImage: '',
+      Resources: '',
+      Styles: {},
+      ShowVisitedPanos: true,
+    }
 
     //plugin-specific global-access plugin ID
-    UTASPlugin.ID = UTASPlugin.ID || '';
-
-    UTASPlugin.SceneID = UTASPlugin.SceneID || '';
+    priv.SceneID = priv.SceneID || '';
 
     //plugin-specific global-access to onscreen container
-    UTASPlugin.InfoBox = UTASPlugin.InfoBox || null;
+    priv.InfoBox = priv.InfoBox || null;
 
     //Container for infospots
-    UTASPlugin.Spots = UTASPlugin.Spots || {};
+    priv.Spots = priv.Spots || {};
 
     //List of seen hotspots for this pano
-    UTASPlugin.Spots.History = UTASPlugin.Spots.History || {};
+    priv.Spots.History = priv.Spots.History || {};
 
-    UTASPlugin.VisitedPanoramas = UTASPlugin.VisitedPanoramas || [];
+    priv.VisitedPanoramas = priv.VisitedPanoramas || [];
 
     //Add CSS Styles
-    UTASPlugin.CSS = UTASPlugin.CSS || {};
+    priv.CSS = priv.CSS || {};
 
     //Global non-specific settings
-    UTASPlugin.Settings = UTASPlugin.Settings || {};
+    priv.Settings = priv.Settings || {};
 
     //Global spotindex array
-    UTASPlugin.SpotIndex = UTASPlugin.SpotIndex || {};
-    UTASPlugin.SpotStack = UTASPlugin.SpotStack || {};
-    UTASPlugin.SpotStackHistory = UTASPlugin.SpotStackHistory || {};
-
+    priv.SpotIndex = priv.SpotIndex || {};
+    priv.SpotStack = priv.SpotStack || {};
+    priv.SpotStackHistory = priv.SpotStackHistory || {};
 
     //Resource location
-    UTASPlugin.Resources = UTASPlugin.Resources || "";
-    UTASPlugin.HotspotImage = UTASPlugin.HotspotImage || "";
+    priv.Resources = priv.Resources || "";
+    priv.HotspotImage = priv.HotspotImage || "";
 
     //XML Source
-    UTASPlugin.XML = UTASPlugin.XML || {};
+    priv.XML = priv.XML || {};
 
-    //Can be enabled from console.
-    //Used for debugging purposes.
-    var bCleanReload = false;
 
-/* Storage Manager */
-    function storeSession(ID, value, type, expiry)
+
+
+
+
+
+    settings = $.extend(true, {}, defaults, args);
+    if(settings.id == '')
     {
-      if(typeof type === "undefined") { type = 'localStorage'; }
-
-      //Disables the session saving.
-      if(type == 'visit') { return; }
-
-      if(type != 'localStorage' && type != 'sessionStorage') { type = 'localStorage'; }
-      if(typeof expiry === "undefined") { expiry = 28; }
-
-      var storage = window[type];
-      storage.setItem(ID, JSON.stringify(value));
-
-      storage.setItem("ver", _version);
-
-      var now = new Date();
-      now.setDate(now.getDate() + expiry);
-      storage.setItem('Expiry', now);
-      logMsg("Session saved to " + type);
-    }
-
-    function fetchSession(ID, type)
-    {
-      if(typeof type === "undefined") { type = 'localStorage'; }
-      if(type != 'localStorage' && type != 'sessionStorage') { type = 'localStorage'; }
-      return window[type].getItem('ver') == _version ? JSON.parse(window[type].getItem(ID)) : false;
-    }
-
-    function cleanSessions()
-    {
-      if(localStorage.getItem('Expiry') && localStorage.getItem('Expiry') > Date.now())
-      {
-        localStorage.clear();
-      }
-    }
-
-/* Properties Getter */
-    //Helper function to get properties
-    function getProp(property, type, pluginID)
-    {
-      if(typeof pluginID !== "string") { pluginID = UTASPlugin.ID; }
-      if(typeof property !== "string") { console.error("Error in getProp: property should be of type string. Type is " + typeof property); }
-      if(typeof type !== "string") { console.error("Error in getProp: type should be of type string. Type is " + typeof type); }
-
-      var preStr = "ptplugin["+pluginID+"].settings[0].option[";  /* Concat with necessary var */  var endStr = '].value';
-      var val = getKrValue(preStr+property+endStr, type);
-      return val;
-    }
-
-
-    function pano() {
-      return document.getElementById("krpanoSWFObject");
-    }
-
-/* Hotspot Manager */
-
-    /**
-     * Constructor function fired from Bootstrap Loader (visHS_BootstrapLoadEvent.tmpl)
-     * Sets initial variables and fires logic functions.
-     * @author cdeckers
-     * @version 1.0
-     * @date    2016-11-29
-     * @param   {Integer}   pID The plugin ID
-     */
-
-    function listHotspots(pID)
-    {
-      //Gets rid of any outdated data.
-      cleanSessions();
-
-      var session = fetchSession(pID, getProp("storageType", "string", pID));
-      if(session !== false)
-      {
-        UTASPlugin = session;
-      }
-
-      // var preFunc = krpano.get('events.onnewpano');
-      // krpano.set('events.onnewpano', function() {
-      //   //Hook custom event into the "On New Pano" event of KRPano DOM object
-      //   $(document).trigger("pano_changed");
-      //   if(typeof preFunc == 'function')
-      //   {
-      //     preFunc(this, arguments);
-      //   }
-      // });
-
-
-      //Set our global plugin ID
-      UTASPlugin.ID = pID;
-
-      //Is our display going to be compact or verbose?
-      UTASPlugin.Settings.Compact = getProp("compactView", "bool");
-      UTASPlugin.Settings.ShowVisitedPanos = getProp("visitedPanos", "bool");
-      UTASPlugin.Settings.HotspotCycling = getProp("infoCycling", "string"); // Currently accepted values are: `all`, `unseen`;
-
-      UTASPlugin.SessionType = getProp("storageType", "string");
-      UTASPlugin.SessionExpiry = getProp("storageDuration", "int");
-
-      UTASPlugin.Resources = getProp("data_dir", "string") + '/' + getProp("plugin_dir", "string") + "/";
-      UTASPlugin.HotspotImage = getProp("imageSrc", "string");
-      UTASPlugin.LinkImage = getProp("linkImg", "string");
-
-      //Saves the current plugin data to the localStorage every 10 seconds (10 * 1000 milliseconds), in case onbeforeunload isn't fired.
-      setInterval(function() {storeSession(pID, UTASPlugin, UTASPlugin.SessionType, UTASPlugin.SessionExpiry)}, 10*1000);
+      console.error("Invalid ID set.");
+      return false;
     }
 
     /**
-     * When the panorama is changed, this event finds the new scene, sets the new variables for it into the global config manager (@see {@link ConfigManager}).
+     * Identifies the version of the plugin
+     * @type {Number}
      */
-    $(document).on('pano_onnewpano', function(event) {
-      //When our panorama is changed, run the managing function
-      var krpano = pano();
-      UTASPlugin.SceneID = krpano.get('xml.scene');
+    pub.version = 0.04;
 
-      addToPanoHistory(UTASPlugin.SceneID);
+   /*******************************
+    *       PUBLIC FUNCTIONS      *
+    *******************************/
+    priv.sorted = {};
 
-      UTASPlugin.Spots[UTASPlugin.SceneID] = UTASPlugin.Spots[UTASPlugin.SceneID] || [];
-      UTASPlugin.Spots.History[UTASPlugin.SceneID] = UTASPlugin.Spots.History[UTASPlugin.SceneID] || [];
-
-      //Takes a copy of the XML source
-      UTASPlugin.XML[UTASPlugin.SceneID] = krpano.get('xml.content');
-
-      //Sets the current index of the spots array for cycling through in click
-      UTASPlugin.SpotIndex[UTASPlugin.SceneID] = UTASPlugin.SpotIndex[UTASPlugin.SceneID] || {};
-      UTASPlugin.SpotStack[UTASPlugin.SceneID] = UTASPlugin.SpotStack[UTASPlugin.SceneID] || {};
-      UTASPlugin.SpotStackHistory[UTASPlugin.SceneID] = UTASPlugin.SpotStackHistory[UTASPlugin.SceneID] || {};
-
-      UpdateHotspots();
-      floorplanHistoryManager();
-      reviveHistory(UTASPlugin.SceneID);
-      if(UTASPlugin.Settings.ShowVisitedPanos)
-      {
-        updatePanoLinks(UTASPlugin.SceneID);
-      }
-    });
-
-    /**
-     * Manager function to run seperate processes.
-     * Current child functions run by the manager:
-     *  - listHotspot(): Scrapes all hotspot information from `xml.content` and returns it in an array.
-     *  - sortSpots(): Compares the style name of each hotspot returned from `listHotspot()` to the `styles.tmpl` file. If it exists in `style.tmpl`, it will then categorize the hotspot. NOTE: If the style name DOES NOT exist, it will be omitted from the resulting array!
-     *  - drawContainer(): Creates the onscreen element for the information to reside in. Along with generating the element, it also manages the on-screen positioning.
-     *  - formatInformation(): Utilizes tidied information returned from `sortSpots()` and returns a HTML-formatted string. To directly modify how the text is output, you will need to modify this function.
-     *  - insertText(): Takes tidied text and puts it into the onscreen element generated by `drawContainer()`.
-     * @author cdeckers
-     * @version 1.0
-     * @date    2016-11-30
-     */
-    function UpdateHotspots()
-    {
-        /**
-         * Gets hotspot ID's from `xml.content`, so long as their are pointspots, omitting all other spot styles.
-         * @function listHotspot
-         * @type {Array} 1D array containing list of scraped hotspot ID's
-         */
-        UTASPlugin.Spots[UTASPlugin.SceneID] = listHotspot();
-        logMsg("Listing hotspots.");
-
-        /**
-         * Compares hotspots from listHotspot to manual entries in `styles.tmpl.
-         * @see {@link listHotspot}
-         * @function sortSpots
-         * @type {Object} 2D object array; {clean-name:{String},children:{Array}} structure.
-         */
-        UTASPlugin.Spots[UTASPlugin.SceneID] = sortSpots(UTASPlugin.Spots[UTASPlugin.SceneID]);
-        logMsg("Sorting hotspots into categories");
-
-        /**
-         * Generates `div` element on screen, and positions according to Panotour in-Style settings.
-         * @function drawContainer
-         * @type {jQuery Object}
-         */
-        UTASPlugin.Container = drawContainer();
-        logMsg("Running the container draw function.");
-
-        /**
-         * HTML-formatted string, ready for on-screen display.
-         * @function formatInformation
-         * @type {String}
-         */
-        var info = formatInformation(UTASPlugin.Spots[UTASPlugin.SceneID]);
-        logMsg("Formatting text");
-
-        /**
-         * Puts the text received from `formatInformation` and inserts into container generated in `drawContainer`.
-         * @function insertContent
-         */
-        insertContent(info);
-        logMsg("Pushing text to container");
-    }
-
-    //Refreshes the information panel
-    function refreshView()
-    {
-      //Format the text
-      logMsg("Formatting text");
-      var info = formatInformation(UTASPlugin.Spots[UTASPlugin.SceneID]);
-
-      //Insert into container and serve
-      logMsg("Pushing text to container");
-      insertContent(info);
-    }
-
-    //Gathers hotspots from xml.content and scrapes out our panopointspots.
-    //TODO: Document and tidy this function
-    function listHotspot()
-    {
-      var hotspots = [];
-      var krpano = document.getElementById("krpanoSWFObject");
-      $.each($(UTASPlugin.XML[UTASPlugin.SceneID]).find("action[name='hidepanopointspots']").html().split(';'), function(key, item) {
-        var spotID = item.trim().match(/[^\[]+\[([^\]]+)[.]*/i);
-        if(spotID)
+    pub.getspots = function() {
+      var items = krpano.get('hotspot').getArray();
+      $.each(items, function(k,v) {
+        if(v.tag == "point")
         {
-          hotspots.push(spotID[1]);
-        }
-      });
-      logMsg("Available hotspot ID's: " + hotspots);
-      return hotspots;
-    };
-
-    //Sorts out spots and categorizes them
-    function sortSpots(hs)
-    {
-      //Gets KRPano object from DOM
-      var krpano = document.getElementById("krpanoSWFObject");
-
-      //Creates an empty object ready for sorting
-      var sorted = {};
-
-      //Go through each hotspot that was found
-      $.each(hs, function(e,v) {
-        //Get the style name for the hotspot
-        var style = krpano.get('hotspot['+v+'].style');
-        //Make sure that there is a style attached, and that it's not null
-        //Javascript recognises null as a false in if statements
-        if(typeof style === "string")
-        {
-          //Go through our styles list, and find where our hotspot should be
-          $.each(UTASPlugin.Styles, function (name, styles) {
-            //Test if the hotspot is in the array.
-            //indexOf returns -1 if not in the array, and the first entry of the array is index 0, etc..
-            if(styles.styles.indexOf(style) > -1)
+          $.each(settings.Styles, function (name, styles)
+          {
+            if(styles.styles.indexOf(v.style) > -1)
             {
-              //If the name of this category doesn't exist yet, we'll add it as an empty array.
-              if(sorted[name] == null) { sorted[name] = []; }
+              priv.sorted[name] = priv.sorted[name] || [];
 
-              //If the name doesn't exist in our spot index object yet, we'll add it and set to 0.
-              UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] = UTASPlugin.SpotIndex[UTASPlugin.SceneID][name] || 0;
+              priv.SpotIndex[priv.SceneID] = priv.SpotIndex[priv.SceneID] || {};
+              priv.SpotStack[priv.SceneID] = priv.SpotStack[priv.SceneID] || {};
+              priv.SpotStackHistory[priv.SceneID] = priv.SpotStackHistory[priv.SceneID] || {};
+
+              priv.SpotIndex[priv.SceneID][name] = priv.SpotIndex[priv.SceneID][name] || 0;
 
               if(styles.display)
               {
-                //If the hotspot category doesn't exist yet, instantialize it, otherwise pass in the existing value;
-                UTASPlugin.SpotStack[UTASPlugin.SceneID][name] = UTASPlugin.SpotStack[UTASPlugin.SceneID][name] || [];
-                UTASPlugin.SpotStackHistory[UTASPlugin.SceneID][name] = UTASPlugin.SpotStackHistory[UTASPlugin.SceneID][name] || [];
-
-                //Add the item to the stack if it hasn't been added before to either the seen or unseen stack.
-                if(UTASPlugin.SpotStack[UTASPlugin.SceneID][name].indexOf(v) == -1 && UTASPlugin.SpotStackHistory[UTASPlugin.SceneID][name].indexOf(v) == -1)
+                priv.SpotStack[priv.SceneID][name] = priv.SpotStack[priv.SceneID][name] || [];
+                priv.SpotStackHistory[priv.SceneID][name] = priv.SpotStackHistory[priv.SceneID][name] || [];
+                if(priv.SpotStack[priv.SceneID][name].indexOf(v.name)  == -1 && priv.SpotStackHistory[priv.SceneID][name].indexOf(v.name) == -1)
                 {
-                  UTASPlugin.SpotStack[UTASPlugin.SceneID][name].push(v);
+                  priv.SpotStack[priv.SceneID][name].push(v.name);
                 }
               }
 
-              var orig = krpano.get('hotspot['+v+'].onclick');
-
-              //Push the name of the hotspot to the array for our styles clean name.
-              sorted[name].push({
-                'name': v,
-                'tooltip': ktools.I18N.getInstance().getMessage(krpano.get('hotspot['+v+'].tooltip')),
-                'pano': getPanoName(orig),
+              priv.sorted[name].push({
+                'name': v.name,
+                'tooltip': ktools.I18N.getInstance().getMessage(v.tooltip),
+                'pano': getPanoramaName(v.onclick),
               });
-              sorted[name]['display'] = styles.display;
-              sorted[name]['isPano'] = styles.isPano;
+              priv.sorted[name]['display'] = styles.display;
+              priv.sorted[name]['isPano'] = styles.isPano;
 
-              var obj = {
-                'orig': orig,
-                'name': v,
-                'style': style,
-                'category': name,
-              };
+              var originalActions = krpano.get('action['+v.onclick+'].content');
+              krpano.set('action['+v.onclick+'].content', originalActions + ' jscall(plugin_Hotspots().get("'+settings.id+'").click("'+v.name+'", "'+v.style+'", "'+name+'"));');
 
-              //For some reason, tagging the onclick function of a panospot stopped it zooming in, even when calling the predefined action manually.
-              //I have no idea why this is, but this workaround fixes it, as the pano information is stored differently to hotspot clicks.
-              if(!styles.isPano)
-              {
-                krpano.set('hotspot['+v+'].onclick', 'js(hotspotClick(\''+JSON.stringify(obj)+'\'))');
-              }
-            } //end if<IndexOf>
-          });   //end .each<UTASPlugin.Styles>
-        }       //end if<style !null>
-      });       //end .each<hotspots>
-
-      //Return our sorted object for the parent function to handle.
-      return sorted;
-    }
-
-    function getPanoName(onclickaction)
-    {
-      //Regex to find pano name.
-      var regex = /mainloadscene\(([^\)]+)/ig;
-
-      if(UTASPlugin.Settings.ShowVisitedPanos)
-      {
-        var func = $(UTASPlugin.XML[UTASPlugin.SceneID]).find("action[name='"+onclickaction+"']").text();
-        var pos = func.indexOf("mainloadscene(");
-        if(pos > -1)
-        {
-          var rx = regex.exec(func);
-          return rx[1];
-        }
-      }
-      return "";
-    }
-
-    //Fires when a registered hotspot is clicked
-    //Hotspots registered when being sorted.
-    function hotspotClick(obj)
-    {
-      obj = JSON.parse(obj);
-      krpano = pano();
-      krpano.call(obj.orig);
-      addToHistory(obj);
-      refreshView();
-    }
-
-    //Helper function to add entries to history stack
-    function addToHistory(obj)
-    {
-      if(obj)
-      {
-        if(UTASPlugin.Spots.History[UTASPlugin.SceneID].indexOf(obj.name) == -1)
-        {
-          UTASPlugin.Spots.History[UTASPlugin.SceneID].push(obj.name);
-          var pos = getHotspotPosition(obj.name);
-          createSeenSpot(obj.name, pos.ath, pos.atv, 0, 0);
-
-          if(UTASPlugin.Settings.HotspotCycling == 'unseen') {
-            var index = UTASPlugin.SpotStack[UTASPlugin.SceneID][obj.category].indexOf(obj.name);
-            if(index > -1)
-            {
-              var item = UTASPlugin.SpotStack[UTASPlugin.SceneID][obj.category].splice(index, 1);
-              UTASPlugin.SpotStackHistory[UTASPlugin.SceneID][obj.category].push(item[0]);
-            }
-          }
-        }
-      }
-    }
-
-    function reviveHistory(scene)
-    {
-      $.each(UTASPlugin.Spots.History[scene], function(k,v) {
-        var pos = getHotspotPosition(v);
-        createSeenSpot(v, pos.ath, pos.atv, 0, 0);
-      });
-    }
-
-    //Helper function to check if entry in history stack
-    function inHistory(obj)
-    {
-      if(obj)
-      {
-        return UTASPlugin.Spots.History[UTASPlugin.SceneID].indexOf(obj.name) > -1;
-      }
-    }
-
-    //Helper function to manage Pano history
-    function addToPanoHistory(scene)
-    {
-      if(typeof scene == "string")
-      {
-        if(UTASPlugin.VisitedPanoramas.indexOf(scene) == -1)
-        {
-          UTASPlugin.VisitedPanoramas.push(scene);
-        }
-      }
-      else
-      {
-        console.error("inPanoHistory('"+scene+"'): Expected argument type `string`. Type given: " + typeof scene);
-        return false;
-      }
-    }
-
-
-    //Helper function to check if entry in history stack
-    function inPanoHistory(scene)
-    {
-      if(typeof scene == "string")
-      {
-        return UTASPlugin.VisitedPanoramas.indexOf(scene) > -1;
-      }
-      else
-      {
-        console.error("inPanoHistory('"+scene+"'): Expected argument type `string`. Type given: " + typeof scene);
-        return false;
-      }
-    }
-
-    function updatePanoLinks(scene)
-    {
-      $.each(UTASPlugin.Spots[scene], function(key, categories) {
-        if(categories.isPano)
-        {
-          $.each(categories, function(key, spot) {
-            if(inPanoHistory(spot.pano))
-            {
-              var pos = getHotspotPosition(spot.name);
-              createSeenSpot(spot.name, pos.ath, pos.atv, 0, 0);
+              return false; //escapes the .each loop, saving time by ignoring unnecessary checks.
             }
           });
         }
       });
     }
 
-    //Allows user to toggle console messages from interface
-    function logMsg(obj)
+  
+    /**
+     * Allows the user to toggle the visibility of the text, for hooking into hide/show control events.
+     * If called without a state argument, it will return the items current visibility status.
+     * @author cdeckers
+     * @version 0.1
+     * @date    2016-12-22
+     * @param   {bool}   state The items visibility state (true; false;)
+     * @return  {bool}         Returns true if the item is successfully toggled.
+     */
+    pub.visible = function(state)
     {
-      //If the user has ticked "Log to console" in Style tab
-      if(getKrValue("ptplugin["+UTASPlugin.ID+"].settings[0].option[consoleLog].value", "bool"))
-      {
-        //Log our message to the console.
-        console.log(obj);
-      }
+      if(state === 'undefined') return settings.visibility;
+      if(priv.container === 'undefined') return null;
+      $(priv.container).css("display", state?"block":"none");
+      settings.visibility = state;
+      return true;
     }
+
+    pub.dump = function()
+    {
+      console.log("Private data");
+      console.log(priv);
+      console.log("Public data");
+      console.log(pub);
+    }
+
+    pub.click = function(name, style, category)
+    {
+      console.log("name: " + name + "; style: " + style + "; category: " + category);
+    }
+
+    /*******************************
+     *      PRIVATE FUNCTIONS      *
+     *******************************/
 
     //Draws container onto the screen, ready for content to be added
     function drawContainer()
     {
-      if(!$('#'+UTASPlugin.ID).length)
+      if($('#'+settings.id).length === 0)
       {
-        //Get the container draw settings.
-        var position = getProp('position', "string");
-        var margin_x = getProp('margin_x', "int");
-        var margin_y = getProp('margin_y', "int");
-
         //Create the square
-        var square = document.createElement('div');
-        square.id = UTASPlugin.ID;
+        var textElem = document.createElement('div');
+        textElem.id = settings.id;
 
         //Add the container of the square to the container of the tour
-        jQuery("#panoDIV").prepend(square);
+        $(settings.parent).prepend(textElem);
 
-        var size = getProp("containerWidth", "int");
-        jQuery(square).css({
-            'z-index': 1,
+        $(textElem).css({
             'position': 'absolute',
-            'width': size+'px',
+            'z-index': '3018',
+            'overflow': 'visible',
+            'opacity': '1',
+            'text-size-adjust': 'none',
+            'pointer-events': 'none',
+            'background': 'none',
+            'cursor': 'default',
           });
 
         var cssPosition = {};
-
+        var size = 2;
         //Calculate the position
-        switch (position) {
+        switch (settings.position) {
           case 'topleft':
-            cssPosition = { 'top': 0, 'left':0, 'margin-left': margin_x, 'margin-top': margin_y};
+            cssPosition = { 'top': 0, 'left':0, 'margin-left': settings.margin.x, 'margin-top': settings.margin.y};
             break;
 
           case 'top':
-            cssPosition = { 'top': 0, 'left': '50%', 'margin-left': '-'+(size/2)+'px', 'margin-top': margin_y };
+            cssPosition = { 'top': 0, 'left': '50%', 'margin-left': (size/2)+'px', 'margin-top': settings.margin.y };
             break;
 
           case 'topright':
-            cssPosition = { 'top': 0, 'right': 0, 'margin-top': margin_y, 'margin-right': margin_x };
+            cssPosition = { 'top': 0, 'right': 0, 'margin-top': settings.margin.y, 'margin-right': settings.margin.x };
             break;
 
           case 'right':
-            cssPosition = { 'top': '50%', 'margin-top':'-'+(size/2)+'px', 'right':0, 'margin-right': margin_x };
+            cssPosition = { 'top': '50%', 'margin-top':(size/2)+'px', 'right':0, 'margin-right': settings.margin.x };
             break;
 
           case 'bottomright':
-            cssPosition = { 'bottom': 0, 'right': 0, 'margin-right': margin_x, 'margin-bottom': margin_y };
+            cssPosition = { 'bottom': 0, 'right': 0, 'margin-right': settings.margin.x, 'margin-bottom': settings.margin.y };
             break;
 
           case 'bottom':
-            cssPosition = { 'bottom': 0, 'left': '50%', 'margin-left': '-'+(size/2)+'px', 'margin-bottom': margin_y }
+            cssPosition = { 'bottom': 0, 'left': '50%', 'margin-left': (size/2)+'px', 'margin-bottom': settings.margin.y }
             break;
 
           case 'bottomleft':
-            cssPosition = { 'bottom' : 0, 'left' : 0,  'margin-bottom': margin_y, 'margin-left': margin_x };
+            cssPosition = { 'bottom' : 0, 'left' : 0,  'margin-bottom': settings.margin.y, 'margin-left': settings.margin.x };
             break;
 
           case 'left':
-            cssPosition = {'left': 0, 'top': '50%', 'margin-top':'-'+(size/2)+'px', 'margin-left': margin_x }
+            cssPosition = {'left': 0, 'top': '50%', 'margin-top':(size/2)+'px', 'margin-left': settings.margin.x }
             break;
 
           case 'center':
-            cssPosition = {'top': '50%', 'margin-top':'-'+(size/2)+'px', 'left': '50%', 'margin-left': '-'+(size/2)+'px'}
+            cssPosition = {'top': '50%', 'margin-top':(size/2)+'px', 'left': '50%', 'margin-left': (size/2)+'px'}
             break;
         }
 
         //Apply the position
-        jQuery(square).css(cssPosition);
+        $(textElem).css(cssPosition);
 
-        return square;
+        createStylesheet();
+
+        return $(textElem);
       }
-      return $('#'+UTASPlugin.ID);
+      return $('#'+settings.id);
     };
 
-    //Formats our text from the Spots data and returns it tidied for the container
-    function formatInformation(spots)
+    function insertContent(container, info)
     {
-      var string = '<div class="spot-box">';
-      if(spots != null)
+      $(container).html('<p class="'+settings.id+'text">'+info+'</p>');
+    }
+
+    function getPanoramaName(actionname)
+    {
+      if(settings.ShowVisitedPanos)
       {
-        $.each(spots, function(name,spot) {
-          if(spot.display)
-          {
-            var seen = 0;
-            var unseen = 0;
-            $.each(spot, function (k, name) {
-              if(inHistory({'name': name.name})) { seen++; } else { unseen++; }
-            });
-            if(UTASPlugin.Settings.Compact)
-            {
-              string += '<p class="spot-result" data-name="'+name+'">'+name+' '+seen+' / ' + (unseen+seen) + '</p>';
-            }
-            else
-            {
-              string += '<p class="spot-result" data-name="'+name+'">'+name+'<br>Viewed '+seen+' / ' + (unseen+seen) + '</p>';
-            }
-          }
-        });
-      }
-      else
-      {
-        string += "<p>No hotspots available.</p>";
-      }
-      string += "</div>";
-      return string;
-    }
-
-    //Inserts the content into the onscreen box for the end-user to see
-    function insertContent(info)
-    {
-      $(UTASPlugin.Container).html(info);
-    }
-
-    function getHotspotPosition(hotspot)
-    {
-      var krpano = pano();
-      return {'ath': krpano.get('hotspot['+hotspot+'].ath'), 'atv': krpano.get('hotspot['+hotspot+'].atv') };
-    }
-
-    function createSeenSpot(parentName, ath, atv, xoffset, yoffset)
-    {
-      var name = parentName + '_seen';
-      logMsg("Seen spot name: " + name);
-      var krpano = pano();
-      krpano.call('addhotspot('+name+')');
-      krpano.set('hotspot['+name+'].url', UTASPlugin.Resources+UTASPlugin.HotspotImage);
-      krpano.set('hotspot['+name+'].edge', 'leftbottom');
-      krpano.set('hotspot['+name+'].zorder', 100);
-      krpano.set('hotspot['+name+'].enabled', false);
-      krpano.set('hotspot['+name+'].ath', parseFloat(ath)+parseFloat(xoffset));
-      krpano.set('hotspot['+name+'].atv', parseFloat(atv)+parseFloat(yoffset));
-    }
-
-/* Manage cycling through hotspots */
-
-    $(document).on("click", ".spot-result", function() {
-
-      //Decides whether or not clicking should have any effect.
-      var bCanClick = true;
-
-      if(bCanClick)
-      {
-        //This stupidly long and convoluted string tries to find the name of the hotspot at the currently stored index.
-        //If you can think of a better way, refactor it!
-        var hotspotName = (UTASPlugin.SpotStack[UTASPlugin.SceneID][$(this).data("name")][UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]]);
-
-        var krpano = document.getElementById("krpanoSWFObject");
-        krpano.call('looktohotspot('+hotspotName+',90,smooth(720,-720,720))');
-
-        UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")]++;
-        if(UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] >= UTASPlugin.SpotStack[UTASPlugin.SceneID][$(this).data("name")].length)
+        var regex = /mainloadscene\(([^\)]+)/ig;
+        var text = krpano.get('action['+actionname+'].content');
+        if(text.indexOf("mainloadscene(") > -1)
         {
-          UTASPlugin.SpotIndex[UTASPlugin.SceneID][$(this).data("name")] = 0;
+          var r = regex.exec(text);
+          return r[1];
         }
-
       }
-      else
-      {
-        alert("All infospots in this location have been visited.");
-      }
-    });
+      return '';
+    }
 
-/* Style tag generator */
+    /* Style tag generator */
+    /* Can possibly be refactored into seperate script? */
 
     function createStylesheet()
     {
-      var fColour = ktools.Color.hex2rgb(getProp("font_colour", "string"));
-      var fDecorate = (getProp("font_underline", "bool") ? "underline " : "") + (getProp("font_strikethrough", "bool") ? "strikethrough" : "");
-      var font = {
-        "font-family": getProp("font_family", "string"),
-        "font-weight": getProp("font_bold", "bool") ? "bold" : "normal",
-        "font-style": getProp("font_italics", "bool") ? "italic" : "normal",
-        "text-decoration":  fDecorate == "" ? "normal" : fDecorate.trim(),
-        "font-size": getProp("font_size", "int")+"px",
-        "color": "rgba("+fColour[0]+","+fColour[1]+","+fColour[2]+","+getProp("font_alpha", "float")+")",
-        "line-height": getProp("lineheight", "int")+"px",
-        "text-shadow": "rgb(0, 0, 0) 1px 1px 3.2px",
-        "background-image": 'url('+UTASPlugin.Resources+UTASPlugin.LinkImage+')',
-        "background-repeat": "no-repeat",
-        "padding": "0px 0 0 32px",
-        "background-position": "0px",
-        "background-size": "contain",
-      };
-      if(UTASPlugin.Settings.Compact)
-      {
-        font["padding-bottom"] = getProp("itemSpacing", "int")+"px";
-        addStyle(".spot-result:last-child", {"padding-bottom":"0"});
-      }
-      addStyle(".spot-result", font);
-
-      addStyle(".spot-box", {
-        'position':'absolute',
-        'bottom':'0',
-        'padding': '10px',
-        'background-color': 'rgba(75,75,75,0.8)',
-        'border': '1px white solid',
-        'border-radius': '3px',
+      addStyle("."+settings.id+"text", {
+        "font-family":      settings.font.family,
+        "font-weight":      settings.font.weight,
+        "font-style":       settings.font.style,
+        "text-decoration":  settings.font.decoration,
+        "font-size":        settings.font.size + 'px',
+        "color":            settings.font.color,
+        "text-shadow":      settings.font.shadow,
       });
-
-      addStyle(".spot-box:hover", {
-        'background-color': 'rgba(50,50,50,0.9)',
-        'cursor': 'pointer',
-      });
-
-      addStyle('.spot-box:empty', {'display': 'none' });
-
-      // //Add in more style information here as needed.
-      // var fColourHover = ktools.Color.hex2rgb(getProp("font_colour_hover", "string"));
-      // addStyle(".spot-result:hover", {
-      //   'color': "rgba("+fColourHover[0]+","+fColourHover[1]+","+fColourHover[2]+","+getProp("font_alpha", "float")+")",
-      //   'cursor': 'pointer',
-      //   'font-weight': 'bold',
-      //   'text-shadow': "rgba("+fColour[0]+","+fColour[1]+","+fColour[2]+","+getProp("font_alpha", "float")+") 1px 1px 3.2px"
-      // });
-
-      addStyle('.fp_seenmarker', {
-        'position': 'absolute',
-        'left': getProp('fp_left', 'int')+'px',
-        'top': getProp('fp_top', 'int')+'px',
-      });
-
       generateCSS();
-
     }
 
     function addStyle(identifier, rule)
     {
-      if(UTASPlugin.CSS[identifier] == null) { UTASPlugin.CSS[identifier] = {}; }
-      $.extend(UTASPlugin.CSS[identifier], rule);
+      if(priv.CSS[identifier] == null) { priv.CSS[identifier] = {}; }
+      $.extend(priv.CSS[identifier], rule);
     }
 
     function generateCSS()
     {
       var rules = "";
-      $.each(UTASPlugin.CSS, function(id, props)
+      $.each(priv.CSS, function(id, props)
       {
         rules += id + " {\n";
         $.each(props, function(property, rule) {
@@ -718,89 +301,43 @@ var _version = 1.03;
       });
 
       $("head").append("<style>"+rules+"</style>");
-
     }
 
-
-
-
-
-/**
- * Floor plan editing happens here.
- */
-
-    function floorplanHistoryManager()
-    {
-      if(getProp('fp_show', 'bool'))
-      {
-        var spots = retrieveFloorplanSpots('floorPlan');
-        searchFloorplanSpots(spots, 'floorPlan');
-      }
-    }
-
-    function retrieveFloorplanSpots(pluginName)
-    {
-      if(typeof pluginName == 'undefined') { console.error('Plugin name must be defined!'); return false; }
-      var p = pano();
-      var spots = p.get('ptplugin['+pluginName+'].floorplanItems.floorplanItem[0].spot');
-      spots = spots.getArray();
-      var items = {};
-      $.each(spots, function(k,v)
-      {
-        items[v.scene] = {
-          'spotname': v.name,
-          'scene': v.scene,
-          'jsclick': v.jsclick,
-          'isscene': v.isscene,
-        };
-      });
-      return items;
-    }
-
-    function searchFloorplanSpots(spots, pluginName)
-    {
-      var p = pano();
-      if(!p.get('ptplugin['+pluginName+'].jsready'))
-      {
-        return setTimeout(function(){searchFloorplanSpots(spots, pluginName);}, 500);
-      }
-
-      $.each(spots, function(k,v)
-      {
-        if(inPanoHistory(k))
-        {
-          applySeenSpotToFloorplan(v);
-        }
-      });
-    }
-
-    function applySeenSpotToFloorplan(spot)
-    {
-      var $img = $('<img id="'+spot.spotname+'_seenmarker">').attr({
-        'src': UTASPlugin.Resources+UTASPlugin.HotspotImage,
-        'width': getProp("fp_width", "int"),
-        'height': getProp('fp_height', 'int'),
-        'class': 'fp_seenmarker',
-      });
-
-      if(!$('#'+spot.spotname+'_seenmarker').length)
-      {
-        $("#"+spot.spotname+"_img").append($img);
-      }
-    }
-
-
-  /* Fires when the window is closed.
-   * Used to ensure that we try and save the data the user has left, in case the autosave hasn't fired yet.
-   */
-  window.onbeforeunload = function(e){
-    if(bCleanReload)
-    {
-        localStorage.clear();
-        sessionStorage.clear();
-    }
-    else
-    {
-      storeSession(UTASPlugin.ID, UTASPlugin, UTASPlugin.SessionType, UTASPlugin.SessionExpiry);
-    }
+    return pub;
   }
+
+  var items = {};
+  function manager() {
+    var pub = {};
+
+    pub.register = function(id, props)
+    {
+      if(items.hasOwnProperty(id)) { console.error("Can't reregister item."); return items[id]; }
+      else {
+        if(props == undefined) { props = {}; }
+        if(!props.hasOwnProperty('id')) { props = $.extend(true, props, {'id':id}); }
+        var p = new plugin(props);
+        items[id] = p; return p;
+      }
+    }
+
+    pub.get = function(id)
+    {
+      if(items.hasOwnProperty(id)) { return items[id]; }
+      else { console.error("Item with ID `" + id + "` doesn't exist. Register your item before you use .get()"); return false; }
+    }
+
+    pub.delete = function(id)
+    {
+      if(items.hasOwnProperty(id)) { delete items[id]; return items.hasOwnProperty(id); }
+    }
+
+    pub.dump = function()
+    {
+      console.log(items);
+    }
+
+    return pub;
+  }
+  return manager;
+}(jQuery)))

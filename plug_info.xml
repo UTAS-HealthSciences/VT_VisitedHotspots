@@ -106,6 +106,7 @@
             <template url="styles.tmpl" type="html"/>
             <template url="visHS_Bootstrap.tmpl"  type="jsbootstrap" />
             <template url="visHS_BootstrapLoadEvent.tmpl" type="jsbootstraploaded" />
+            <template url="jsevents.tmpl" />
         </templates>
 
         <resources>

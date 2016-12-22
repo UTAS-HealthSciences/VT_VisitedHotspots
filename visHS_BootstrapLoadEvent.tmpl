@@ -1,3 +1,10 @@
 // addSuperSquare('{{ p.id }}');
-listHotspots('{{ p.id }}');
-createStylesheet();
+//listHotspots('{{ p.id }}');
+//createStylesheet();
+
+window.plugin = window.plugin || {};
+window.plugin.hotspots = window.plugin.hotspots || plugin_Hotspots();
+
+var data = window.plugin.hotspots.register('{{p.id}}', {Styles: HotspotStyles});
+data.listspots();
+data.dump();
