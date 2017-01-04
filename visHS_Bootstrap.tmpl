@@ -4,15 +4,15 @@
 * Date: 24 November 2016
 */
 
-var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (function( $, undefined ) {
+var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (function( $ , undefined ) {
   function plugin(args) {
     var pub = {}; //Public facing functions and variables.
     var priv = {}; //Helper container to hold known-private variables.
 
     var settings = {};
     var defaults = {
-      id: '',
-      font: {
+      id: '',   //Plugin ID
+      font: {   //Font defaults
         size: '12px',
         family: 'Calibri',
         decoration: 'none',
@@ -20,59 +20,72 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
         weight: 'normal',
         color: 'white',
         shadow: '',
+        lineheight: '',
       },
-      position: 'topleft',
-      margin: {
+      position: 'topleft', //Onscreen position of the information element
+      width: 100,
+      margin: {  //Margin away from the edge of the screen
         x: 0,
         y: 0,
       },
-      parent: "#panoDIV",
-      visibility: true,
-      HotspotImage: '',
-      Resources: '',
-      Styles: {},
-      ShowVisitedPanos: true,
+      parent: "#panoDIV", //Parent element to attach the information element to
+      visibility: true,   //Is the element visible?
+      LinkImage: '',      //Image to display next to the clickable element of the information element.
+      HotspotImage: '',   //Image to overlay on seen hotspots
+      Resources: '',      //Resources URI
+      Styles: {},         //Object element from styles.tmpl
+      ShowVisitedPanos: true, //Show visited panoramas as well?
+      Floorplan: {
+        Show: false, //Show markers on floorplan?
+        Size: {
+          Width: 16,  //Icon width
+          Height: 16, //Icon height
+        },
+        Position: {
+          Top: 0,     //Icon top spacing
+          Left: 0,    //Icon left spacing
+        },
+      },
+      CompactView: true,  //Should the information element appear in a compacted view?
+      Storage: {
+        StorageMethod: 'localStorage',  //Storage type
+        StoreOnClose: true,             //Should the data be saved when the tour is closed?
+        AutosaveTime: 15,               //How often should the data autosave in seconds? (0 for never);
+        StaleAge: 31,                   //How long should the data be stored for before it's considered stale?
+      },
     }
+
+    var data = {    // Object to be serialized upon data save.
+      Spots: {              //Spot information.
+        History: {},        //List of seen spots in the panos.
+      },
+      VisitedPanoramas: [], //Stack of panos that have been loaded.
+      SpotIndex: {},        //Spot index array
+      SpotStack: {},        //Spot stack
+      SpotStackHistory: {}, //Spot stack history
+    }
+
+    priv.data = data;
 
     //plugin-specific global-access plugin ID
     priv.SceneID = priv.SceneID || '';
 
     //plugin-specific global-access to onscreen container
-    priv.InfoBox = priv.InfoBox || null;
-
-    //Container for infospots
-    priv.Spots = priv.Spots || {};
-
-    //List of seen hotspots for this pano
-    priv.Spots.History = priv.Spots.History || {};
-
-    priv.VisitedPanoramas = priv.VisitedPanoramas || [];
+    priv.container = priv.container || null;
 
     //Add CSS Styles
     priv.CSS = priv.CSS || {};
 
-    //Global non-specific settings
-    priv.Settings = priv.Settings || {};
+    //Decides internally whether it should be allowed to save when the window is closed/refreshed.
+    priv.saveonreload = true;
 
-    //Global spotindex array
-    priv.SpotIndex = priv.SpotIndex || {};
-    priv.SpotStack = priv.SpotStack || {};
-    priv.SpotStackHistory = priv.SpotStackHistory || {};
+    //Sorted items from `pub.getspots`
+    priv.sorted = {};
 
-    //Resource location
-    priv.Resources = priv.Resources || "";
-    priv.HotspotImage = priv.HotspotImage || "";
-
-    //XML Source
-    priv.XML = priv.XML || {};
-
-
-
-
-
-
-
+    //Add our defaults and overrides to our primary settings object.
     settings = $.extend(true, {}, defaults, args);
+
+    //If the item has no id, then break the creation and close code.
     if(settings.id == '')
     {
       console.error("Invalid ID set.");
@@ -83,14 +96,34 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
      * Identifies the version of the plugin
      * @type {Number}
      */
-    pub.version = 0.04;
+    pub.version = 0.05;
+
 
    /*******************************
     *       PUBLIC FUNCTIONS      *
     *******************************/
-    priv.sorted = {};
+    /**
+     * Process manager to fire off arguments in default order.
+     * @author cdeckers
+     * @version 0.1
+     * @date    2017-01-02
+     * @return  {bool}   Returns whether successfully finished.
+     */
+    pub.process = function() {
+      pub.getspots();
+      priv.drawContainer();
+      priv.drawContent();
+    }
 
+    /**
+     * Gets hotspots from the tour and processes them.
+     * @author cdeckers
+     * @version 0.1
+     * @date    2017-01-02
+     * @return  {void}
+     */
     pub.getspots = function() {
+      priv.sorted = {};
       var items = krpano.get('hotspot').getArray();
       $.each(items, function(k,v) {
         if(v.tag == "point")
@@ -101,41 +134,41 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
             {
               priv.sorted[name] = priv.sorted[name] || [];
 
-              priv.SpotIndex[priv.SceneID] = priv.SpotIndex[priv.SceneID] || {};
-              priv.SpotStack[priv.SceneID] = priv.SpotStack[priv.SceneID] || {};
-              priv.SpotStackHistory[priv.SceneID] = priv.SpotStackHistory[priv.SceneID] || {};
+              data.SpotIndex[priv.SceneID] = data.SpotIndex[priv.SceneID] || {};
+              data.SpotStack[priv.SceneID] = data.SpotStack[priv.SceneID] || {};
+              data.SpotStackHistory[priv.SceneID] = data.SpotStackHistory[priv.SceneID] || {};
 
-              priv.SpotIndex[priv.SceneID][name] = priv.SpotIndex[priv.SceneID][name] || 0;
+              data.SpotIndex[priv.SceneID][name] = data.SpotIndex[priv.SceneID][name] || 0;
 
               if(styles.display)
               {
-                priv.SpotStack[priv.SceneID][name] = priv.SpotStack[priv.SceneID][name] || [];
-                priv.SpotStackHistory[priv.SceneID][name] = priv.SpotStackHistory[priv.SceneID][name] || [];
-                if(priv.SpotStack[priv.SceneID][name].indexOf(v.name)  == -1 && priv.SpotStackHistory[priv.SceneID][name].indexOf(v.name) == -1)
+                data.SpotStack[priv.SceneID][name] = data.SpotStack[priv.SceneID][name] || [];
+                data.SpotStackHistory[priv.SceneID][name] = data.SpotStackHistory[priv.SceneID][name] || [];
+                if(data.SpotStack[priv.SceneID][name].indexOf(v.name)  == -1 && data.SpotStackHistory[priv.SceneID][name].indexOf(v.name) == -1)
                 {
-                  priv.SpotStack[priv.SceneID][name].push(v.name);
+                  data.SpotStack[priv.SceneID][name].push(v.name);
                 }
               }
 
-              priv.sorted[name].push({
+              priv.sorted[name]['items'] = priv.sorted[name]['items'] || [];
+              priv.sorted[name]['items'].push({
                 'name': v.name,
                 'tooltip': ktools.I18N.getInstance().getMessage(v.tooltip),
-                'pano': getPanoramaName(v.onclick),
+                'pano': priv.getPanoramaName(v.onclick),
               });
               priv.sorted[name]['display'] = styles.display;
               priv.sorted[name]['isPano'] = styles.isPano;
 
               var originalActions = krpano.get('action['+v.onclick+'].content');
-              krpano.set('action['+v.onclick+'].content', originalActions + ' jscall(plugin_Hotspots().get("'+settings.id+'").click("'+v.name+'", "'+v.style+'", "'+name+'"));');
+              krpano.set('action['+v.onclick+'].content', 'jscall(plugin_Hotspots().get("'+settings.id+'").click("'+v.name+'", "'+v.style+'", "'+name+'")); ' + originalActions);
 
               return false; //escapes the .each loop, saving time by ignoring unnecessary checks.
             }
           });
         }
       });
-    }
+    };
 
-  
     /**
      * Allows the user to toggle the visibility of the text, for hooking into hide/show control events.
      * If called without a state argument, it will return the items current visibility status.
@@ -152,31 +185,137 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
       $(priv.container).css("display", state?"block":"none");
       settings.visibility = state;
       return true;
-    }
+    };
 
+    /**
+     * Debug function to list all private and public elements.
+     * TODO: Remove on final release
+     * @author cdeckers
+     * @version 1.0
+     * @date    2017-01-02
+     * @return  {void}
+     */
     pub.dump = function()
     {
       console.log("Private data");
       console.log(priv);
       console.log("Public data");
       console.log(pub);
-    }
+    };
 
+    /**
+     * Fires on hotspot clicks.
+     * @author cdeckers
+     * @version 0.1
+     * @date    2017-01-02
+     * @param   {string}   name     Name of the hotspot clicked
+     * @param   {string}   style    Style of the hotspot clicked
+     * @param   {string}   category Clean name of the item collected from the passed Style item
+     * @return  {void}
+     */
     pub.click = function(name, style, category)
     {
-      console.log("name: " + name + "; style: " + style + "; category: " + category);
-    }
+      var spot = priv.getSpot(category, name);
+      priv.history.add(spot, function(success, data) {
+        if(success)
+        {
+          if(spot.isPano && !settings.ShowVisitedPanos) { return false; }
+          var p = priv.overlay.spotPosition(spot.name);
+          priv.overlay.create(spot, p);
+        }
+        priv.drawContent();
+      });
+    };
+
+    /**
+     * Public wrapper of the storage.store() method, allowing it to be called elsewhere.
+     * @author cdeckers
+     * @version 0.1
+     * @date    2017-01-03
+     * @return  {void}
+     */
+    pub.store = function() {
+      priv.storage.store();
+    };
+
+    /*******************************
+     *        EVENT HANDLERS       *
+     *******************************/
+
+    //Fires when the tour begins initially.
+    $(document).on('pano_ontourstart', function() {
+      settings.Storage.StorageMethod = settings.Storage.StorageMethod.replace('storage', 'Storage'); priv.storage.get();
+      if(settings.Storage.AutosaveTime > 0) { setInterval(function(){if(priv.saveonreload){priv.storage.store();console.log("autosaving..");}}, settings.Storage.AutosaveTime*1000); /* Fires autosave event. */ }
+    });
+
+    // Fires as soon as the pano begins to load
+    $(document).on('pano_onnewscene', function() {
+      priv.SceneID = krpano.get('xml.scene');
+      priv.history.add({isPano: true, pano: priv.SceneID});
+      pub.process();
+      priv.floorplan.generate();
+    });
+
+    //Fires as soon as the preview version of the pano is available, and the hotspots have been placed.
+    $(document).on('pano_onpreviewcomplete', function() {
+      priv.history.restore();
+    });
+
+    //Fires when the window is unloaded (closed, refreshed or navigated away from.)
+    window.onbeforeunload = function(e){
+      if(settings.Storage.StoreOnClose && priv.saveonreload)
+      {
+        priv.storage.store();
+      }
+    };
+
+    //Fires when a keypress is detected.
+    $(document).on('keydown', function(e) {
+      if(e.ctrlKey && e.shiftKey && e.key == '~' && priv.saveonreload == true)
+      {
+        priv.saveonreload = false;
+        priv.storage.clean('{{project.description.name}}');
+      }
+    });
+
+    //Fires when the information text is clicked on.
+    $(document).on("click", ".spot-result", function() {
+      var category = $(this).data("name"); //Gets the category of the items clicked on.
+      var spotstack = data.SpotStack[priv.SceneID][category]; //Gets the spot stack of the current scene and category.
+      var spotname = spotstack[data.SpotIndex[priv.SceneID][category]] //Gets the hotspot name from our current spot index.
+      krpano.call('looktohotspot('+spotname+',90,smooth(720,-720,720))');
+
+      var index = data.SpotIndex[priv.SceneID][category]; //Saves our current index for logging purposes.
+      data.SpotIndex[priv.SceneID][category]++; //Increase our spots index by one.
+
+      //If increasing our spot index put it out of bounds (by being as long as or longer than the length of the array)
+      if(data.SpotIndex[priv.SceneID][category] >= data.SpotStack[priv.SceneID][category].length)
+      {
+        data.SpotIndex[priv.SceneID][category] = 0; //Return our spot index to 0, so we can start again.
+      }
+
+      $(document).trigger('infospot_click', {
+        'hotspot': spotname,
+        'index': index,
+        'next': data.SpotIndex[priv.SceneID][category],
+        'category': category,
+      });
+    });
+
+    //Toggles visibility
+    $(document).on('pano_showtourcontrols pano_hidetourcontrols', function(event) {
+      pub.visible(event.type == 'pano_showtourcontrols');
+    });
 
     /*******************************
      *      PRIVATE FUNCTIONS      *
      *******************************/
 
     //Draws container onto the screen, ready for content to be added
-    function drawContainer()
+    priv.drawContainer = function()
     {
       if($('#'+settings.id).length === 0)
       {
-        //Create the square
         var textElem = document.createElement('div');
         textElem.id = settings.id;
 
@@ -192,10 +331,12 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
             'pointer-events': 'none',
             'background': 'none',
             'cursor': 'default',
+            'width': settings.width+'px',
           });
 
         var cssPosition = {};
         var size = 2;
+
         //Calculate the position
         switch (settings.position) {
           case 'topleft':
@@ -237,23 +378,47 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
 
         //Apply the position
         $(textElem).css(cssPosition);
-
-        createStylesheet();
-
-        return $(textElem);
+        priv.styles.build();
       }
+      priv.container = $('#'+settings.id);
       return $('#'+settings.id);
     };
 
-    function insertContent(container, info)
+    //Format and insert the content. Is called every time the information needs to be updated.
+    priv.drawContent = function(container)
     {
-      $(container).html('<p class="'+settings.id+'text">'+info+'</p>');
-    }
-
-    function getPanoramaName(actionname)
-    {
-      if(settings.ShowVisitedPanos)
+      if(typeof container == 'undefined') { container = priv.container; }
+      var string = '<div class="spot-box">';
+      var spots = priv.sorted;
+      if(spots != null)
       {
+        $.each(spots, function(name,spot) {
+          if(spot.display)
+          {
+            var seen = priv.history.size(priv.SceneID);
+            var total = priv.sorted[name]['items'].length;
+            if(settings.CompactView)
+            {
+              string += '<p class="spot-result" data-name="'+name+'">'+name+' '+seen+' / ' + (total) + '</p>';
+            }
+            else
+            {
+              string += '<p class="spot-result" data-name="'+name+'">'+name+'<br>Viewed '+seen+' / ' + (total) + '</p>';
+            }
+          }
+        });
+      }
+      else
+      {
+        string += "<p>No hotspots available.</p>";
+      }
+      string += "</div>";
+      $(container).html('<div class="'+settings.id+'text">'+string+'</div>');
+    };
+
+    //Get the panorama name that the spot is attached to (if attached). Otherwise return an empty string.
+    priv.getPanoramaName = function(actionname)
+    {
         var regex = /mainloadscene\(([^\)]+)/ig;
         var text = krpano.get('action['+actionname+'].content');
         if(text.indexOf("mainloadscene(") > -1)
@@ -261,48 +426,363 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
           var r = regex.exec(text);
           return r[1];
         }
-      }
       return '';
-    }
+    };
 
-    /* Style tag generator */
-    /* Can possibly be refactored into seperate script? */
-
-    function createStylesheet()
+    priv.getSpotCategory = function(name)
     {
-      addStyle("."+settings.id+"text", {
-        "font-family":      settings.font.family,
-        "font-weight":      settings.font.weight,
-        "font-style":       settings.font.style,
-        "text-decoration":  settings.font.decoration,
-        "font-size":        settings.font.size + 'px',
-        "color":            settings.font.color,
-        "text-shadow":      settings.font.shadow,
-      });
-      generateCSS();
-    }
-
-    function addStyle(identifier, rule)
-    {
-      if(priv.CSS[identifier] == null) { priv.CSS[identifier] = {}; }
-      $.extend(priv.CSS[identifier], rule);
-    }
-
-    function generateCSS()
-    {
-      var rules = "";
-      $.each(priv.CSS, function(id, props)
-      {
-        rules += id + " {\n";
-        $.each(props, function(property, rule) {
-          rules += "\t"+property+":"+rule+";\n";
+      var val = '';
+      $.each(priv.sorted, function(k, v) {
+        $.each(v.items, function(index,v) {
+          if(v.name == name)
+          {
+            val = k;
+            return false;
+          }
         });
-        rules += "}\n\n";
+        return (val == '');
       });
+      return val;
+    };
 
-      $("head").append("<style>"+rules+"</style>");
+    //Returns the object containing spot information. Also includes parent details such as display status and if it's a panorama.
+    priv.getSpot = function(category, name)
+    {
+      var item = {};
+      $.each(priv.sorted[category].items, function(k, v) {
+        if(name == v.name)
+        {
+          item = v;
+          item['display'] = priv.sorted[category].display;
+          item['isPano'] = priv.sorted[category].isPano;
+          return false;
+        }
+      });
+      return item;
     }
 
+    //Returns the object containing spot information. Also includes parent details such as display status and if it's a panorama.
+    priv.getSpotsByPanoName = function(name, callback)
+    {
+      if(name == '') {return false;}
+      var spots = [];
+      $.each(priv.sorted, function(k, v) {
+        $.each(v.items, function (index, v) {
+          if(name == v.pano)
+          {
+            var spot = priv.getSpot(k, v.name);
+            spots.push(spot);
+            if(typeof callback == 'function')
+            {
+              callback.apply(this, [spot])
+            }
+          }
+        });
+      });
+      return spots;
+    }
+
+    //History manager
+    priv.history = {
+        add: function(obj, callback)
+        {
+          if(!obj.hasOwnProperty('isPano')) { console.error('History.add() parameter error: requires object with `isPano` property.'); return false; }
+          if(obj.isPano)
+          {
+            var added = false;
+            if(data.VisitedPanoramas.indexOf(obj.pano) == -1)
+            {
+                added = true;
+                data.VisitedPanoramas.push(obj.pano);
+            }
+            if(typeof callback == 'function')
+            {
+              callback.apply(this, [added,obj]);
+            }
+            return added;
+          }
+          else
+          {
+            var added = false;
+            if(data.Spots.History[priv.SceneID].indexOf(obj.name) == -1)
+            {
+              data.Spots.History[priv.SceneID].push(obj.name);
+              added = true;
+
+              if(settings.HotspotCycling == 'unseen') {
+                var index = data.SpotStack[priv.SceneID][obj.category].indexOf(obj.name);
+                if(index > -1)
+                {
+                  var item = data.SpotStack[priv.SceneID][obj.category].splice(index, 1); //I honestly can't remember what these two lines do. Sorry.
+                  data.SpotStackHistory[priv.SceneID][obj.category].push(item[0]);        //I do know that it has something to do with the seen and unseen hotspot stack for the click system though.
+                }                                                                         //That should narrow it down for you.
+              }
+            }
+            if(typeof callback == 'function')
+            {
+              callback.apply(this, [added,obj]);
+            }
+            return added;
+          }
+        },
+        exists: function(obj)
+        {
+          if(!obj.hasOwnProperty('isPano')) { console.error('History.exists() parameter error: requires object with `isPano` property.'); return false; }
+          if(obj.isPano)
+          {
+            return data.VisitedPanoramas.indexOf(obj.pano) > -1;
+          }
+          else
+          {
+            return data.Spots.History[priv.SceneID].indexOf(obj.name) > -1;
+          }
+        },
+        size: function(scene)
+        {
+          data.Spots.History[scene] = data.Spots.History[scene] || [];
+          return data.Spots.History[scene].length;
+        },
+        get: function(callback)
+        {
+          if(typeof callback == 'undefined')
+          {
+            return {"Panoramas": data.VisitedPanoramas, "Hotspots": data.Spots.History[priv.SceneID] };
+          }
+          else if(typeof callback == 'function')
+          {
+            if(data.VisitedPanoramas.length > 0 && settings.ShowVisitedPanos)
+            {
+              $.each(data.VisitedPanoramas, function(index, value) {
+                if(value != priv.SceneID) {
+                  callback.apply(this, [value, true]);
+                }
+              });
+            }
+            data.Spots.History[priv.SceneID] = data.Spots.History[priv.SceneID] || [];
+            if(data.Spots.History[priv.SceneID].length > 0)
+            {
+              $.each(data.Spots.History[priv.SceneID], function(index, value) {
+                callback.apply(this, [value, false]);
+              });
+            }
+          }
+        },
+        restore: function() {
+            priv.history.get(function(data, isPano)
+            {
+              if(isPano) {
+                priv.getSpotsByPanoName(data, function(spot) {
+                  var p = priv.overlay.spotPosition(spot.name);
+                  priv.overlay.create(spot, p);
+                });
+              }
+              else {
+                var spot = priv.getSpot(priv.getSpotCategory(data), data);
+                var p = priv.overlay.spotPosition(spot.name);
+                priv.overlay.create(spot, p);
+              }
+            });
+        }
+    };
+
+    //Overlay manager
+    priv.overlay = {
+      spotPosition: function(hotspot)
+      {
+        return {'ath': krpano.get('hotspot['+hotspot+'].ath'), 'atv': krpano.get('hotspot['+hotspot+'].atv')};
+      },
+      create: function(parent, position, offset)
+      {
+        if(typeof offset == 'undefined') { offset = settings.Overlay.Offset; }
+        var name = parent.name+'_seen';
+        krpano.call('addhotspot('+name+')');
+        krpano.set('hotspot['+name+'].url', settings.Resources+settings.HotspotImage);
+        krpano.set('hotspot['+name+'].edge', 'leftbottom');
+        krpano.set('hotspot['+name+'].zorder', 100);
+        krpano.set('hotspot['+name+'].enabled', false);
+        krpano.set('hotspot['+name+'].ath', parseFloat(position.ath)+parseFloat(offset.x));
+        krpano.set('hotspot['+name+'].atv', parseFloat(position.atv)+parseFloat(offset.y));
+        krpano.set('hotspot['+name+'].scale', parseFloat(settings.Overlay.Scale / 100));
+      },
+    };
+
+    //Storage manager
+    priv.storage = {
+      serialize: function(v) {
+        return JSON.stringify(v);
+      },
+      unserialize: function(v) {
+        return JSON.parse(v);
+      },
+      store: function() {
+        switch(settings.Storage.StorageMethod)
+        {
+          case 'localStorage':
+          case 'sessionStorage':
+            var staleAge = new Date(); staleAge.setDate(staleAge.getDate() + settings.Storage.StaleAge); //Gets the Date Object of our expiry (today + expiry days)
+            window[settings.Storage.StorageMethod].setItem('{{project.description.name}}', priv.storage.serialize({
+              'data': data,
+              'expiry': staleAge.toISOString(),
+              'version': pub.version,
+            }));
+            break;
+
+          case 'visit':
+          default:
+            break;
+        }
+      },
+      get: function() {
+        if('{{project.description.name}}' == '') //the text between the curly braces will be replaced and parsed when the project is built.
+        {
+          console.error("Description name isn't set yet!");
+          return false;
+        }
+
+        var containers = ['localStorage', 'sessionStorage'];
+        if(containers.indexOf(settings.Storage.StorageMethod) > -1)
+        {
+          var obj = window[settings.Storage.StorageMethod].getItem('{{project.description.name}}');
+          if(obj)
+          {
+            obj = priv.storage.unserialize(obj);
+            var today = new Date();
+            if(obj.version == pub.version && Date.parse(obj.expiry) >= today)
+            {
+              data = obj.data;
+            }
+            else
+            {
+              priv.storage.clean('{{project.description.name}}');
+            }
+          }
+        }
+      },
+      clean: function(id) {
+        window[settings.Storage.StorageMethod].removeItem(id);
+        console.log("cache flushed.");
+      }
+    };
+
+    //Floorplan manager
+    priv.floorplan = {
+      generate: function() {
+        if(settings.Floorplan.Show)
+        {
+          var pins = priv.floorplan.getPins('floorPlan');
+          priv.floorplan.findPins(pins, 'floorPlan');
+        }
+      },
+      getPins: function(pid) {
+        if(typeof pid == 'undefined') { console.error('Plugin name must be defined!'); return false; }
+        var spots = krpano.get('ptplugin['+pid+'].floorplanItems.floorplanItem[0].spot');
+        spots = spots.getArray();
+        var items = {};
+        $.each(spots, function(k,v)
+        {
+          items[v.scene] = {
+            'spotname': v.name,
+            'scene': v.scene,
+            'jsclick': v.jsclick,
+            'isscene': v.isscene,
+          };
+        });
+        return items;
+      },
+      findPins: function(pins, pid) {
+        if(!krpano.get('ptplugin['+pid+'].jsready'))
+        {
+          return setTimeout(function(){priv.floorplan.findPins(pins, pid);}, 500);
+        }
+
+        $.each(pins, function(k,v)
+        {
+          if(priv.history.exists({isPano: true, pano: k}))
+          {
+            priv.floorplan.addPins(v);
+          }
+        });
+      },
+      addPins: function(spot) {
+        var $img = $('<img id="'+spot.spotname+'_seenmarker">').attr({
+          'src': settings.Resources+settings.HotspotImage,
+          'width': settings.Floorplan.Size.Width,
+          'height': settings.Floorplan.Size.Height,
+          'class': 'fp_seenmarker',
+        });
+
+        if(!$('#'+spot.spotname+'_seenmarker').length) {
+          $("#"+spot.spotname+"_img").append($img);
+        }
+      },
+    };
+
+    /* Style generator */
+    priv.styles = {
+      build: function() {
+        priv.styles.add(".spot-result", {
+          "font-family":      settings.font.family,
+          "font-weight":      settings.font.weight,
+          "font-style":       settings.font.style,
+          "text-decoration":  settings.font.decoration,
+          "font-size":        settings.font.size,
+          "color":            settings.font.color,
+          "line-height":      settings.font.lineheight,
+          "text-shadow":      settings.font.shadow,
+          "background-image": 'url('+settings.Resources+settings.LinkImage+')',
+          "background-repeat": "no-repeat",
+          "padding": "0px 0 0 32px",
+          "background-position": "0px",
+          "background-size": "contain",
+        });
+
+        if(settings.CompactView)
+        {
+          priv.styles.add(".spot-result:last-child", {"padding-bottom":"0"});
+        }
+
+        priv.styles.add(".spot-box", {
+          'position':'absolute',
+          'bottom':'0',
+          'padding': '10px',
+          'background-color': 'rgba(75,75,75,0.8)',
+          'border': '1px white solid',
+          'border-radius': '3px',
+          'pointer-events': 'all',
+          });
+
+        priv.styles.add(".spot-box:hover", {
+          'background-color': 'rgba(50,50,50,0.9)',
+          'cursor': 'pointer',
+        });
+
+        priv.styles.add('.spot-box:empty', {'display': 'none' });
+
+        priv.styles.add('.fp_seenmarker', {
+          'position': 'absolute',
+          'left': settings.Floorplan.Position.Left+'px',
+          'top': settings.Floorplan.Position.Top+'px',
+        });
+        priv.styles.generate();
+      },
+      add: function(identifier, rule) {
+        if(priv.CSS[identifier] == null) { priv.CSS[identifier] = {}; }
+        $.extend(priv.CSS[identifier], rule);
+      },
+      generate: function() {
+        var rules = "";
+        $.each(priv.CSS, function(id, props)
+        {
+          rules += id + " {\n";
+          $.each(props, function(property, rule) {
+            rules += "\t"+property+":"+rule+";\n";
+          });
+          rules += "}\n\n";
+        });
+        if($('style#hotspots').length == 0) { $("head").append("<style id='hotspots'></style>"); }
+        $("style#hotspots").append(rules);
+      }
+    };
     return pub;
   }
 

@@ -1,5 +1,7 @@
 <script type="text/javascript">
-//Initiates a container
+//Creates a user-friendly structure to know what kind of hotspot we have by finding out its style name.
+//Style name is identified by `Icon<name of style without spaces>`
+//Any styles not listed here will remain untracked.
 var HotspotStyles = {
   'Panoramas': {
     'styles': [
@@ -11,28 +13,6 @@ var HotspotStyles = {
       'display': false,
       'isPano': true,
   },
-
-  // 'Documents': [
-  //   'IconPDFInfoSpot',
-  // ],
-  //
-  // 'Info Spots': [
-  //   'IconResourcesspot-_weblink_',
-  //   'IconInformationSpot-Web',
-  // ],
-  //
-  // 'Galleries': [
-  //   'IconOpentheGallery',
-  // ],
-  //
-  // 'Videos': [
-  //   'IconWebvideospot',
-  // ],
-  //
-  // 'Images' : [
-  //   'IconPicturespot'
-  // ],
-
   'Information': {
     'styles': [
       'IconResourcesspot-_weblink_',

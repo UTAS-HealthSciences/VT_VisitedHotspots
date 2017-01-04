@@ -81,7 +81,6 @@ var _version = 1.03;
     }
 
     function cleanSessions()
-    {
       if(localStorage.getItem('Expiry') && localStorage.getItem('Expiry') > Date.now())
       {
         localStorage.clear();

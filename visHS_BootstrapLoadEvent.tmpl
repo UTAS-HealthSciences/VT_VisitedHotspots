@@ -1,10 +1,66 @@
-// addSuperSquare('{{ p.id }}');
-//listHotspots('{{ p.id }}');
-//createStylesheet();
-
 window.plugin = window.plugin || {};
 window.plugin.hotspots = window.plugin.hotspots || plugin_Hotspots();
 
-var data = window.plugin.hotspots.register('{{p.id}}', {Styles: HotspotStyles});
-data.listspots();
-data.dump();
+//Property getting helper function.
+function getProp(property, type, pluginID)
+{
+  if(typeof pluginID !== "string") { pluginID = '{{p.id}}'; }
+  if(typeof property !== "string") { console.error("Error in prop: property should be of type string. Type is " + typeof property); }
+  if(typeof type !== "string") { console.error("Error in prop: type should be of type string. Type is " + typeof type); }
+
+  var preStr = "ptplugin["+pluginID+"].settings[0].option[";  /* Concat with necessary var */  var endStr = '].value';
+  var val = getKrValue(preStr+property+endStr, type);
+  return val;
+}
+
+var fc = ktools.Color.hex2rgb(getProp("font_colour", "string", '{{p.id}}'));
+var fd = (getProp("font_underline", "bool", '{{p.id}}') ? "underline " : "") + (getProp("font_strikethrough", "bool", '{{p.id}}') ? "strikethrough" : "");
+
+window.plugin.hotspots.register('{{p.id}}', {
+  id: '{{p.id}}',
+  Styles: HotspotStyles,
+  HotspotImage: getProp("imageSrc", "string", '{{p.id}}'),
+  LinkImage:    getProp("linkImg", "string", '{{p.id}}'),
+  Resources:    getProp("data_dir", "string", '{{p.id}}') + '/' + getProp("plugin_dir", "string", '{{p.id}}') + "/",
+  font: {
+    size:       getProp("font_size", "int", '{{p.id}}')+"px",
+    family:     getProp("font_family", "string", '{{p.id}}'),
+    decoration: fd == "" ? "normal" : fd.trim(),
+    style:      getProp("font_italics", "bool", '{{p.id}}') ? "italic" : "normal",
+    weight:     getProp("font_bold", "bool", '{{p.id}}') ? "bold" : "normal",
+    color:      "rgba("+fc[0]+","+fc[1]+","+fc[2]+","+getProp("font_alpha", "float", '{{p.id}}')+")",
+    shadow:     getProp("font_shadow", "bool", '{{p.id}}') ? "rgb(0, 0, 0) 1px 1px 3.2px" : '',
+    lineheight: getProp("lineheight", "int", '{{p.id}}')+"px",
+  },
+  position:     getProp('position', "string", '{{p.id}}'),
+  width:        getProp('containerWidth', 'int', '{{p.id}}'),
+  margin: {
+    x: getProp('margin_x', "int", '{{p.id}}'),
+    y: getProp('margin_y', "int", '{{p.id}}'),
+  },
+  ShowVisitedPanos: getProp('visitedPanos', 'bool', '{{p.id}}'),
+  Floorplan: {
+    Show: getProp('fp_show', 'bool', '{{p.id}}'),
+    Size: {
+      Width: getProp('fp_width', 'int', '{{p.id}}'),
+      Height: getProp('fp_height', 'int', '{{p.id}}'),
+    },
+    Position: {
+      Top: getProp('fp_top', 'int', '{{p.id}}'),
+      Left: getProp('fp_left', 'int', '{{p.id}}'),
+    },
+  },
+  CompactView:      getProp('compactView', 'bool', '{{p.id}}'),
+  CycleMethod:      getProp('infoCycling', 'string', '{{p.id}}'),
+  Storage: {
+    StorageMethod:  getProp('storageType', 'string', '{{p.id}}'),
+    StaleAge:       getProp('storageDuration', 'int', '{{p.id}}'),
+  },
+  Overlay: {
+    Scale: 80, //Percentage of original size.
+    Offset: {
+      x: 0,
+      y: 0,
+    },
+  },
+});
