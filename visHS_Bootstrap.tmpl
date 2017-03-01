@@ -7,7 +7,19 @@
 var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (function( $ , undefined ) {
   function plugin(args) {
     var pub = {}; //Public facing functions and variables.
-    var priv = {}; //Helper container to hold known-private variables.
+    var priv = {
+      totals: {
+        scenes: {
+          visited: 0,
+          total: 0,
+        },
+        spots: {
+          visited: 0,
+            total: 0,
+        },
+      }
+    }; //Helper container to hold known-private variables.
+
 
     var settings = {};
     var defaults = {
@@ -63,6 +75,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
       SpotIndex: {},        //Spot index array
       SpotStack: {},        //Spot stack
       SpotStackHistory: {}, //Spot stack history
+      SeenSpotCount: 0,
     }
 
     priv.data = data;
@@ -102,6 +115,19 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
    /*******************************
     *       PUBLIC FUNCTIONS      *
     *******************************/
+
+    /**
+     * Constructor function.
+     * Fires automatically when plugin registered.
+     * @author cdeckers
+     * @version 1
+     * @date    2017-01-18
+     * @return  {void}
+     */
+    // pub._construct = function() {
+    //
+    // }
+
     /**
      * Process manager to fire off arguments in default order.
      * @author cdeckers
@@ -123,45 +149,44 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
      * @return  {void}
      */
     pub.getspots = function() {
-      priv.sorted = {};
-      var items = krpano.get('hotspot').getArray();
-      $.each(items, function(k,v) {
-        if(v.tag == "point")
+      priv.sorted = {}; //Hold the sorted elements
+      var items = krpano.get('hotspot').getArray(); //Get the array of hotspots in the scene
+      $.each(items, function(k,v) { //Loop through each hotspot
+        if(v.tag == "point") //If it's a point spot, instead of an image spot or something else
         {
-          $.each(settings.Styles, function (name, styles)
+          $.each(settings.Styles, function (name, styles) //Loop through each of our pre-defined styles
           {
-            if(styles.styles.indexOf(v.style) > -1)
+            if(styles.styles.indexOf(v.style) > -1) //If the style of our hotspot is in our styles list
             {
-              priv.sorted[name] = priv.sorted[name] || [];
+              priv.sorted[name] = priv.sorted[name] || []; //Create or grab an array with the clean, readable name of our style group.
 
-              data.SpotIndex[priv.SceneID] = data.SpotIndex[priv.SceneID] || {};
-              data.SpotStack[priv.SceneID] = data.SpotStack[priv.SceneID] || {};
-              data.SpotStackHistory[priv.SceneID] = data.SpotStackHistory[priv.SceneID] || {};
+              data.SpotIndex[priv.SceneID] = data.SpotIndex[priv.SceneID] || {}; //Create or grab the spotIndex container for our scene
+              data.SpotStack[priv.SceneID] = data.SpotStack[priv.SceneID] || {}; //Add our spot to a stack, so we know we can cycle through them.
+              data.SpotStackHistory[priv.SceneID] = data.SpotStackHistory[priv.SceneID] || {};  //The spot stack history, to establish if an item has already been.
 
-              data.SpotIndex[priv.SceneID][name] = data.SpotIndex[priv.SceneID][name] || 0;
+              data.SpotIndex[priv.SceneID][name] = data.SpotIndex[priv.SceneID][name] || 0; //Grab the spotIndex for our current category
 
-              if(styles.display)
+              if(styles.display) //If this style should be displayed on screen,
               {
-                data.SpotStack[priv.SceneID][name] = data.SpotStack[priv.SceneID][name] || [];
-                data.SpotStackHistory[priv.SceneID][name] = data.SpotStackHistory[priv.SceneID][name] || [];
-                if(data.SpotStack[priv.SceneID][name].indexOf(v.name)  == -1 && data.SpotStackHistory[priv.SceneID][name].indexOf(v.name) == -1)
+                data.SpotStack[priv.SceneID][name] = data.SpotStack[priv.SceneID][name] || []; //Get the spot stack for our current category
+                data.SpotStackHistory[priv.SceneID][name] = data.SpotStackHistory[priv.SceneID][name] || []; //Get the spot stack history for our current category
+                if(data.SpotStack[priv.SceneID][name].indexOf(v.name)  == -1 && data.SpotStackHistory[priv.SceneID][name].indexOf(v.name) == -1) //If the current item isn't in our spotstack or our history stack
                 {
-                  data.SpotStack[priv.SceneID][name].push(v.name);
+                  data.SpotStack[priv.SceneID][name].push(v.name); //Add it to our stack then.
                 }
               }
 
-              priv.sorted[name]['items'] = priv.sorted[name]['items'] || [];
-              priv.sorted[name]['items'].push({
-                'name': v.name,
-                'tooltip': ktools.I18N.getInstance().getMessage(v.tooltip),
-                'pano': priv.getPanoramaName(v.onclick),
+              priv.sorted[name]['items'] = priv.sorted[name]['items'] || []; //Create or grab the stack of items for our category
+              priv.sorted[name]['items'].push({ //Add a new object to our items stack
+                'name': v.name, //Add the name
+                'tooltip': ktools.I18N.getInstance().getMessage(v.tooltip), //Get the tooltip
+                'pano': priv.getPanoramaName(v.onclick), //Get the pano name
               });
-              priv.sorted[name]['display'] = styles.display;
-              priv.sorted[name]['isPano'] = styles.isPano;
+              priv.sorted[name]['display'] = styles.display; //Should the style be displayed?
+              priv.sorted[name]['isPano'] = styles.isPano; //Is the style a panorama? (this is used for crossreferencing visited panos between scenes).
 
-              var originalActions = krpano.get('action['+v.onclick+'].content');
-              krpano.set('action['+v.onclick+'].content', 'jscall(plugin_Hotspots().get("'+settings.id+'").click("'+v.name+'", "'+v.style+'", "'+name+'")); ' + originalActions);
-
+              var originalActions = krpano.get('action['+v.onclick+'].content'); //Get the current action of the onclick event.
+              krpano.set('action['+v.onclick+'].content', 'jscall(plugin_Hotspots().get("'+settings.id+'").click("'+v.name+'", "'+v.style+'", "'+name+'")); ' + originalActions); //Add our own click event to the end of the onclick event.
               return false; //escapes the .each loop, saving time by ignoring unnecessary checks.
             }
           });
@@ -180,27 +205,10 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
      */
     pub.visible = function(state)
     {
-      if(state === 'undefined') return settings.visibility;
-      if(priv.container === 'undefined') return null;
-      $(priv.container).css("display", state?"block":"none");
-      settings.visibility = state;
-      return true;
-    };
-
-    /**
-     * Debug function to list all private and public elements.
-     * TODO: Remove on final release
-     * @author cdeckers
-     * @version 1.0
-     * @date    2017-01-02
-     * @return  {void}
-     */
-    pub.dump = function()
-    {
-      console.log("Private data");
-      console.log(priv);
-      console.log("Public data");
-      console.log(pub);
+      if(state === 'undefined') return settings.visibility; //If the argument wasn't passed, then return the current state.
+      if(priv.container === 'undefined') return null; //If the container hasn't been built yet, then return a null object that can be checked for.
+      $(priv.container).css("display", state?"block":"none"); //Toggle the visiblity of the container
+      settings.visibility = state; //Set the internal visibility state to our new state
     };
 
     /**
@@ -215,15 +223,15 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
      */
     pub.click = function(name, style, category)
     {
-      var spot = priv.getSpot(category, name);
-      priv.history.add(spot, function(success, data) {
-        if(success)
+      var spot = priv.getSpot(category, name); //Get spot object by category and name
+      priv.history.add(spot, function(success, data) { //Add the spot, then fire our anonymous callback
+        if(success) //If the spot was added successfully
         {
-          if(spot.isPano && !settings.ShowVisitedPanos) { return false; }
-          var p = priv.overlay.spotPosition(spot.name);
-          priv.overlay.create(spot, p);
+          if(spot.isPano && !settings.ShowVisitedPanos) { return false; } //If the clicked spot is a panorama spot and we've said not to track them, then leave now
+          var p = priv.overlay.spotPosition(spot.name); // Find the location of the clicked spot in the world sphere
+          priv.overlay.create(spot, p); //Create an overlay spot in that location
         }
-        priv.drawContent();
+        priv.drawContent(); //Redraw content on screen (this updates the text with new numbgers)
       });
     };
 
@@ -235,7 +243,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
      * @return  {void}
      */
     pub.store = function() {
-      priv.storage.store();
+      priv.storage.store(); //Run internal storage function
     };
 
     /*******************************
@@ -244,37 +252,56 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
 
     //Fires when the tour begins initially.
     $(document).on('pano_ontourstart', function() {
-      settings.Storage.StorageMethod = settings.Storage.StorageMethod.replace('storage', 'Storage'); priv.storage.get();
-      if(settings.Storage.AutosaveTime > 0) { setInterval(function(){if(priv.saveonreload){priv.storage.store();console.log("autosaving..");}}, settings.Storage.AutosaveTime*1000); /* Fires autosave event. */ }
+      settings.Storage.StorageMethod = settings.Storage.StorageMethod.replace('storage', 'Storage'); priv.storage.get(); //Get our storage method
+      if(settings.Storage.AutosaveTime > 0) { setInterval(function(){if(priv.saveonreload){priv.storage.store();console.log("autosaving..");}}, settings.Storage.AutosaveTime*1000); /* Fires autosave event. */ } //If there's an autosave time greater than 0, fire our save every that many seconds.
     });
 
     // Fires as soon as the pano begins to load
     $(document).on('pano_onnewscene', function() {
-      priv.SceneID = krpano.get('xml.scene');
-      priv.history.add({isPano: true, pano: priv.SceneID});
-      pub.process();
-      priv.floorplan.generate();
+      priv.SceneID = krpano.get('xml.scene'); //Get the scene ID
+      priv.history.add({isPano: true, pano: priv.SceneID}); //Add the scene ID to our panorama history
+      pub.process(); //Run our process handler again
+      priv.floorplan.generate(); //Run our floorplan visited pin handler. (It will handle the logic of whether it can run!)
     });
 
     //Fires as soon as the preview version of the pano is available, and the hotspots have been placed.
     $(document).on('pano_onpreviewcomplete', function() {
-      priv.history.restore();
+      priv.history.restore(); //Restore our history elements back to our scene.
     });
 
     //Fires when the window is unloaded (closed, refreshed or navigated away from.)
     window.onbeforeunload = function(e){
-      if(settings.Storage.StoreOnClose && priv.saveonreload)
+      var stats = {}; //Build a statistics object
+      stats.total = priv.getSpotCounts(); //Get the total number of spots in the entire tour.
+
+      //Submit our scenes visited and total scene count to Google Analytics
+      $(document).trigger('cA_event', {category: 'Goals', action: 'Tour Completion', label: 'All Scenes', projectEvent:true, data: {'metric1':stats.total.scenes.visited,'metric2':stats.total.scenes.total}});
+      //Submit our spots visited and total spot count to Google Analytics
+      $(document).trigger('cA_event', {category: 'Goals', action: 'Tour Completion', label: 'All Info Spots', projectEvent: true, data: {'metric1':stats.total.spots.visited,'metric2':stats.total.spots.total}});
+
+      $.each(data.Spots.History, function(scene, info) { //For each of the spots in our History stack,
+        var total = stats.total.scene[scene]; //Get the value in our total scenes element.
+        if(total > 0) //If there are scenes to visit.
+        {
+          var sceneName = ktools.I18N.getInstance().getMessage(krpano.get('scene['+scene+'].titleid')); //Get the name of the scene from KRPano
+          $(document).trigger('cA_event', {category: 'Goals', action: 'Tour Completion', label: 'Scene: ' + sceneName, projectEvent: true, data:{'metric1': info.length, 'metric2': total}}) //Send an event for each scene completion to Google Analytics
+        }
+      });
+
+      if(settings.Storage.StoreOnClose && priv.saveonreload) //If we store on close, we can save now
       {
-        priv.storage.store();
+        priv.storage.store(); //Run the save function
       }
     };
 
     //Fires when a keypress is detected.
+    //This is used as a debug function to flush the cache and reset
+    //Current hotkey is Ctrl+Shift+` (backtick/tilde)
     $(document).on('keydown', function(e) {
-      if(e.ctrlKey && e.shiftKey && e.key == '~' && priv.saveonreload == true)
+      if(e.ctrlKey && e.shiftKey && e.key == '~' && priv.saveonreload == true) //If hotkey combo is pressed and save on reload is set (so that it doesn't run repeatedly)
       {
-        priv.saveonreload = false;
-        priv.storage.clean('{{project.description.name}}');
+        priv.saveonreload = false; //Disable save on reload for this session, so that it won't save when you reload the page
+        priv.storage.clean('{{project.description.name}}'); //Clean the storage with the key of our projects name
       }
     });
 
@@ -283,7 +310,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
       var category = $(this).data("name"); //Gets the category of the items clicked on.
       var spotstack = data.SpotStack[priv.SceneID][category]; //Gets the spot stack of the current scene and category.
       var spotname = spotstack[data.SpotIndex[priv.SceneID][category]] //Gets the hotspot name from our current spot index.
-      krpano.call('looktohotspot('+spotname+',90,smooth(720,-720,720))');
+      krpano.call('looktohotspot('+spotname+',90,smooth(720,-720,720))'); //Pans to the hotspot with an animation
 
       var index = data.SpotIndex[priv.SceneID][category]; //Saves our current index for logging purposes.
       data.SpotIndex[priv.SceneID][category]++; //Increase our spots index by one.
@@ -294,34 +321,82 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
         data.SpotIndex[priv.SceneID][category] = 0; //Return our spot index to 0, so we can start again.
       }
 
+      //Trigger an infospot_click event, for any listeners
       $(document).trigger('infospot_click', {
         'hotspot': spotname,
         'index': index,
         'next': data.SpotIndex[priv.SceneID][category],
         'category': category,
       });
+
+      $(document).trigger('cA_event', {category: 'Tour Interactions', action: 'click', label: 'Information Spots', projectEvent: true}); //Trigger an event to inform that the infospot content box was clicked. (This is a project event, and won't be attached to a particular scene name).
     });
 
     //Toggles visibility
     $(document).on('pano_showtourcontrols pano_hidetourcontrols', function(event) {
-      pub.visible(event.type == 'pano_showtourcontrols');
+      pub.visible(event.type == 'pano_showtourcontrols'); //Toggle whether or not this should be shown, on hide/show events.
     });
 
     /*******************************
      *      PRIVATE FUNCTIONS      *
      *******************************/
 
+    //Will be private. Public for testing purposes.
+    priv.getSpotCounts = function()
+    {
+      //Data store
+      var obj = {
+        scenes: {},
+        spots: {},
+        scene: {},
+      };
+
+      //Register the seen and total scene counts.
+      obj.scenes.visited = data.VisitedPanoramas.length;
+      obj.scenes.total = krpano.get('scene.count');
+
+      var spotCount = 0; //Total spot count
+      for(var i=0; i<krpano.get('scene.count'); i++) //Loop through each of the scenes
+      {
+       var content = krpano.get('scene['+i+'].content'); //Get this scenes XML content
+       if(content != '') //If this content isn't empty
+       {
+         obj.scene[krpano.get('scene['+i+'].name')] = 0; //Store a value in our data store
+         var results;  var regex = /<hotspot name="([a-z0-9]+)".*?style="([^"]+).*?tag="point"/gi; //Regex to find each hotspot definition
+         while((results = regex.exec(content)) !== null) //Loop through each regex result
+         {
+           var spotname = results[1]; //Name of the spot
+           var spotstyle = results[2]; //Style of the spot
+           $.each(settings.Styles, function(index, data) { //Loop through each styles
+             if(data.styles.indexOf(spotstyle) > -1 && !data.isPano) //If the spotstyle is in our Styles object, and it's not a panorama spot.
+             {
+               spotCount++; //Add 1 to our spotCount
+               obj.scene[krpano.get('scene['+i+'].name')]++; //Add the value in our scene count
+               return false;
+             }
+           });
+         }
+       }
+      }
+
+      //Register the seen and total infospot counts.
+      obj.spots.visited = data.SeenSpotCount;
+      obj.spots.total = spotCount;
+      return obj;
+    }
+
     //Draws container onto the screen, ready for content to be added
     priv.drawContainer = function()
     {
-      if($('#'+settings.id).length === 0)
+      if($('#'+settings.id).length === 0) //If the container doesn't exist already
       {
-        var textElem = document.createElement('div');
-        textElem.id = settings.id;
+        var textElem = document.createElement('div'); //Generate a new DIV element
+        textElem.id = settings.id; //Give our element an ID
 
         //Add the container of the square to the container of the tour
         $(settings.parent).prepend(textElem);
 
+        //Set the styles of our DIV
         $(textElem).css({
             'position': 'absolute',
             'z-index': '3018',
@@ -387,7 +462,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
     //Format and insert the content. Is called every time the information needs to be updated.
     priv.drawContent = function(container)
     {
-      if(typeof container == 'undefined') { container = priv.container; }
+      if(typeof container == 'undefined') { container = priv.container; } //If the argument isn't provided, then set it ourselves
       var string = '<div class="spot-box">';
       var spots = priv.sorted;
       if(spots != null)
@@ -506,6 +581,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
             var added = false;
             if(data.Spots.History[priv.SceneID].indexOf(obj.name) == -1)
             {
+              data.SeenSpotCount++;
               data.Spots.History[priv.SceneID].push(obj.name);
               added = true;
 
@@ -542,15 +618,16 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
           data.Spots.History[scene] = data.Spots.History[scene] || [];
           return data.Spots.History[scene].length;
         },
-        get: function(callback)
+        get: function(callback, includePanos)
         {
+          if(typeof includePanos == 'undefined') { includePanos = true; }
           if(typeof callback == 'undefined')
           {
             return {"Panoramas": data.VisitedPanoramas, "Hotspots": data.Spots.History[priv.SceneID] };
           }
           else if(typeof callback == 'function')
           {
-            if(data.VisitedPanoramas.length > 0 && settings.ShowVisitedPanos)
+            if(data.VisitedPanoramas.length > 0 && settings.ShowVisitedPanos && includePanos)
             {
               $.each(data.VisitedPanoramas, function(index, value) {
                 if(value != priv.SceneID) {
@@ -581,6 +658,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
                 var p = priv.overlay.spotPosition(spot.name);
                 priv.overlay.create(spot, p);
               }
+              priv.drawContent();
             });
         }
     };
@@ -675,18 +753,22 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
       },
       getPins: function(pid) {
         if(typeof pid == 'undefined') { console.error('Plugin name must be defined!'); return false; }
-        var spots = krpano.get('ptplugin['+pid+'].floorplanItems.floorplanItem[0].spot');
-        spots = spots.getArray();
         var items = {};
-        $.each(spots, function(k,v)
+        var floorPlanItems = krpano.get('ptplugin['+pid+'].floorplanItems.floorplanItem').getArray();
+        for(var fpI = 0; fpI < floorPlanItems.length; fpI++)
         {
-          items[v.scene] = {
-            'spotname': v.name,
-            'scene': v.scene,
-            'jsclick': v.jsclick,
-            'isscene': v.isscene,
-          };
-        });
+          var spots = floorPlanItems[fpI]['spot'].getArray();
+          items[fpI] = items[fpI] || {};
+          $.each(spots, function(k,v)
+          {
+            items[fpI][v.scene] = {
+              'spotname': v.name,
+              'scene': v.scene,
+              'jsclick': v.jsclick,
+              'isscene': v.isscene,
+            };
+          });
+        }
         return items;
       },
       findPins: function(pins, pid) {
@@ -695,13 +777,16 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
           return setTimeout(function(){priv.floorplan.findPins(pins, pid);}, 500);
         }
 
-        $.each(pins, function(k,v)
+        for(var fp in pins)
         {
-          if(priv.history.exists({isPano: true, pano: k}))
+          $.each(pins[fp], function(k,v)
           {
-            priv.floorplan.addPins(v);
-          }
-        });
+            if(priv.history.exists({isPano: true, pano: k}))
+            {
+              priv.floorplan.addPins(v);
+            }
+          });
+        }
       },
       addPins: function(spot) {
         var $img = $('<img id="'+spot.spotname+'_seenmarker">').attr({
@@ -797,7 +882,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
         if(props == undefined) { props = {}; }
         if(!props.hasOwnProperty('id')) { props = $.extend(true, props, {'id':id}); }
         var p = new plugin(props);
-        items[id] = p; return p;
+        items[id] = p; if(p.hasOwnProperty('_construct')) { if(typeof p._construct == 'function') { p._construct(); } } return p;
       }
     }
 
