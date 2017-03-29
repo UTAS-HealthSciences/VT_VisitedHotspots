@@ -329,7 +329,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
         'category': category,
       });
 
-      $(document).trigger('cA_event', {category: 'Tour Interactions', action: 'click', label: 'Information Spots', projectEvent: true}); //Trigger an event to inform that the infospot content box was clicked. (This is a project event, and won't be attached to a particular scene name).
+      $(document).trigger('cA_event', {category: 'Tour Interactions', action: 'click', label: 'Information Helper', projectEvent: true}); //Trigger an event to inform that the infospot content box was clicked. (This is a project event, and won't be attached to a particular scene name).
     });
 
     //Toggles visibility
@@ -754,7 +754,12 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
       getPins: function(pid) {
         if(typeof pid == 'undefined') { console.error('Plugin name must be defined!'); return false; }
         var items = {};
-        var floorPlanItems = krpano.get('ptplugin['+pid+'].floorplanItems.floorplanItem').getArray();
+        var floorPlanItems = krpano.get('ptplugin['+pid+'].floorplanItems.floorplanItem');
+        if(floorPlanItems == null)
+          return null;
+
+        floorPlanItems = floorPlanItems.getArray();
+
         for(var fpI = 0; fpI < floorPlanItems.length; fpI++)
         {
           var spots = floorPlanItems[fpI]['spot'].getArray();
@@ -772,6 +777,9 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
         return items;
       },
       findPins: function(pins, pid) {
+        if(pins == null)
+          return;
+
         if(!krpano.get('ptplugin['+pid+'].jsready'))
         {
           return setTimeout(function(){priv.floorplan.findPins(pins, pid);}, 500);
