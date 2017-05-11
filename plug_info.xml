@@ -9,33 +9,30 @@
 
         <parameters>
           <group id="display" name="tr: Display">
-            <row id="position">
+            <row id="r_display">
+              <bool id="displayCounter" name="tr: Display Counter in corner?" default="true" />
+            </row>
+            <row id="position" conditionalParam="displayCounter" conditionalValues="true">
               <position id="myPosition" name="Position" default="topleft" availableValues="topleft,topright,bottomleft,bottomright,bottom,top,left,right,center"/>
             </row>
-            <row id="size">
+            <row id="size" conditionalParam="displayCounter" conditionalValues="true">
               <number id="containerWidth" name="tr: Container Width" default="350" minimum="0" maximum="800" suffix="px" />
             </row>
-            <row id="compactMode">
-              <bool id="compactView" name="tr: Compact View" default="true" />
-            </row>
-            <row id="spacing" conditionalParam="compactView" conditionalValues="true">
-              <number id="itemSpacing" name="tr: Entry Spacing" default="20" minimum="0" maximum="100" suffix="px" />
-            </row>
           </group>
-          <group id="fonts" name="tr: Font Style">
-            <row id="font">
+          <group id="fonts" name="tr: Font Style" conditionalParam="displayCounter" conditionalValues="true">
+            <row id="r_font">
               <font id="font" name="tr:Font family" details="tr: Choose font family" default="Calibri" size="20" style="normal" />
             </row>
-            <row id="fontcolour">
+            <row id="r_fontcolour">
               <color id="fontcolor" name="tr: Font color" default="#ffffff" needalpha="false" defaultalpha="1.0" />
             </row>
-            <row id="fontcolourhover">
+            <row id="r_fontcolourhover">
               <color id="fontcolorhover" name="tr: Font color on hover" source="currentProjectForeground" needalpha="false" defaultalpha="1.0" />
             </row>
-            <row id="lineheight">
+            <row id="r_lineheight">
               <number id="lineheight" name="tr: Line Height" default="20" minimum="0" maximum="1000" suffix="px" />
             </row>
-            <row id="fontshadow">
+            <row id="r_fontshadow">
               <bool id="fontshadow" name="tr: Display a shadow behind the text" default="true" />
             </row>
           </group>
@@ -43,7 +40,7 @@
             <row id="image_picker_visited">
               <filechooser id="visitedImage" name="tr: Visited Hotspot Image" default="" filters="images" allowremote="false" />
             </row>
-            <row id="image_picker_link">
+            <row id="image_picker_link" conditionalParam="displayCounter" conditionalValues="true">
               <filechooser id="linkImage" name="tr: Link denoting image" default="" filters="images" allowremote="false" />
             </row>
             <row id="settings_pano">
@@ -89,12 +86,6 @@
               </row>
               <row id="sessionExpiry" conditionalParam="sessionOption" conditionalValues="localStorage">
                 <number id="sessionDays" name="tr: Data should remain available for" default="7" minimum="1" maximum="365" suffix="days"/>
-              </row>
-            </group>
-
-            <group id="debug" name="tr: Debugging">
-              <row id="rDebug">
-                <bool id="consoleLog" name="tr: Log to console" details="tr: Log information to console during use." default="false" />
               </row>
             </group>
           </advanced>

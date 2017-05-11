@@ -58,7 +58,7 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
           Left: 0,    //Icon left spacing
         },
       },
-      CompactView: true,  //Should the information element appear in a compacted view?
+      DisplayCounter: true,  //Should the information element appear in a compacted view?
       Storage: {
         StorageMethod: 'localStorage',  //Storage type
         StoreOnClose: true,             //Should the data be saved when the tour is closed?
@@ -137,6 +137,10 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
      */
     pub.process = function() {
       pub.getspots();
+
+      // If we don't want to show our content, then bail out here.
+      if(!settings.DisplayCounter) { return false; }
+
       priv.drawContainer();
       priv.drawContent();
     }
@@ -388,6 +392,9 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
     //Draws container onto the screen, ready for content to be added
     priv.drawContainer = function()
     {
+      // If we don't want to show our content, then bail out here.
+      if(!settings.DisplayCounter) { return false; }
+
       if($('#'+settings.id).length === 0) //If the container doesn't exist already
       {
         var textElem = document.createElement('div'); //Generate a new DIV element
@@ -462,6 +469,9 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
     //Format and insert the content. Is called every time the information needs to be updated.
     priv.drawContent = function(container)
     {
+      // If we don't want to show our content, then bail out here.
+      if(!settings.DisplayCounter) { return false; }
+
       if(typeof container == 'undefined') { container = priv.container; } //If the argument isn't provided, then set it ourselves
       var string = '<div class="spot-box">';
       var spots = priv.sorted;
@@ -472,20 +482,9 @@ var plugin_Hotspots = (plugin_Hotspots !== undefined ? plugin_Hotspots : (functi
           {
             var seen = priv.history.size(priv.SceneID);
             var total = priv.sorted[name]['items'].length;
-            if(settings.CompactView)
-            {
-              string += '<p class="spot-result" data-name="'+name+'">'+name+' '+seen+' / ' + (total) + '</p>';
-            }
-            else
-            {
-              string += '<p class="spot-result" data-name="'+name+'">'+name+'<br>Viewed '+seen+' / ' + (total) + '</p>';
-            }
+            string += '<p class="spot-result" data-name="'+name+'">'+name+' '+seen+' / ' + (total) + '</p>';
           }
         });
-      }
-      else
-      {
-        string += "<p>No hotspots available.</p>";
       }
       string += "</div>";
       $(container).html('<div class="'+settings.id+'text">'+string+'</div>');
